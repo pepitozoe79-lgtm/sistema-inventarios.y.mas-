@@ -1,3 +1,5 @@
+![Banner](banner.png)
+
 # 🛒 Sistema de Inventario, Bodega y Ventas (Rust)
 
 Este es un sistema integral de gestión de inventario, bodega y ventas multiusuario, diseñado para ser ligero, rápido y multiplataforma (Windows, Linux, macOS). Construido con **Rust** en el backend y una interfaz moderna en **Vanilla JavaScript**.
