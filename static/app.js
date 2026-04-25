@@ -4,7 +4,7 @@ let usuario = JSON.parse(localStorage.getItem('usuario'));
 // --- Utilidades ---
 const API_BASE = '/api/v1';
 
-async fn apiFetch(endpoint, options = {}) {
+async function apiFetch(endpoint, options = {}) {
     if (!options.headers) options.headers = {};
     if (token) options.headers['Authorization'] = `Bearer ${token}`;
     
@@ -18,7 +18,6 @@ async fn apiFetch(endpoint, options = {}) {
     const result = await response.json();
 
     if (!response.ok) {
-        // Manejo de errores estandarizado (v1)
         const errorMsg = result.error || "Error desconocido";
         const errorCode = result.code || "UNKNOWN_ERROR";
         
@@ -41,7 +40,7 @@ async fn apiFetch(endpoint, options = {}) {
         throw { message: errorMsg, code: errorCode };
     }
 
-    return result; // Devuelve { data: ..., meta: ... } o { data: ... }
+    return result;
 }
 
 // --- Autenticación ---
@@ -138,7 +137,7 @@ function mostrarDashboard() {
                 </div>
                 <ul>
                     <li onclick="cargarProductos()">📦 Productos</li>
-                    <li onclick="cargarMovimientos()">🚛 Bodega</li>
+                    <li onclick="cargarMovimientos()">🚛 Kardex / Bodega</li>
                     <li onclick="cargarVentas()">💰 Ventas</li>
                     ${usuario.rol === 'admin' ? '<li onclick="cargarUsuarios()">👥 Usuarios</li>' : ''}
                     <li onclick="cerrarSesion()" class="logout">🚪 Salir</li>
@@ -192,7 +191,7 @@ async function cargarProductos() {
                         <th>Código</th>
                         <th>Nombre</th>
                         <th>Precio</th>
-                        <th>Stock</th>
+                        <th>Stock Actual</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -253,7 +252,7 @@ async function eliminarProducto(id) {
     }
 }
 
-// 🚛 MOVIMIENTOS (BODEGA)
+// 🚛 KARDEX (BODEGA)
 async function cargarMovimientos() {
     const main = document.getElementById('main-content');
     try {
@@ -262,47 +261,73 @@ async function cargarMovimientos() {
 
         main.innerHTML = `
             <div class="header-actions">
-                <h2>🚛 Movimientos de Bodega</h2>
-                <button class="btn-primary" onclick="mostrarFormMovimiento()">+ Registrar Movimiento</button>
+                <h2>🚛 Historial de Movimientos (Kardex)</h2>
+                <button class="btn-primary" onclick="mostrarFormMovimiento()">+ Nuevo Movimiento</button>
             </div>
             <div id="form-movimiento" class="card" style="display:none; margin-bottom: 2rem;">
-                <h3>Registrar Entrada/Salida</h3>
+                <h3>Registrar Movimiento de Inventario</h3>
                 <form onsubmit="registrarMovimiento(event)">
-                    <input type="text" name="producto_id" placeholder="ID del Producto" required>
-                    <select name="tipo">
-                        <option value="entrada">Entrada (+)</option>
-                        <option value="salida">Salida (-)</option>
-                    </select>
-                    <input type="number" name="cantidad" placeholder="Cantidad" required>
-                    <input type="text" name="motivo" placeholder="Motivo (ej: Compra, Ajuste)">
-                    <button type="submit" class="btn-primary">Registrar</button>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <input type="text" name="producto_id" placeholder="ID del Producto" required>
+                        <select name="tipo" onchange="toggleCosto(this.value)">
+                            <option value="ENTRADA">ENTRADA (+)</option>
+                            <option value="SALIDA">SALIDA (-)</option>
+                            <option value="AJUSTE">AJUSTE (Corrección)</option>
+                        </select>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                        <input type="number" name="cantidad" placeholder="Cantidad" required>
+                        <input type="number" step="0.01" name="costo" id="costo-input" placeholder="Costo Unitario (Opcional)">
+                    </div>
+                    <textarea name="motivo" placeholder="Motivo o comentario del movimiento" style="margin-top: 1rem; width: 100%;"></textarea>
+                    <button type="submit" class="btn-primary" style="margin-top: 1rem;">Confirmar Movimiento</button>
                 </form>
             </div>
-            <table class="card">
+            <table class="card" style="font-size: 0.9rem;">
                 <thead>
                     <tr>
                         <th>Fecha</th>
-                        <th>Producto</th>
+                        <th>Producto (ID)</th>
                         <th>Tipo</th>
                         <th>Cant.</th>
+                        <th>Antes</th>
+                        <th>Después</th>
                         <th>Motivo</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${movimientos.map(m => `
+                    ${movimientos.map(m => {
+                        let badgeClass = 'badge-info';
+                        if (m.tipo === 'ENTRADA') badgeClass = 'badge-success';
+                        if (m.tipo === 'SALIDA') badgeClass = 'badge-danger';
+                        if (m.tipo === 'AJUSTE') badgeClass = 'badge-warning';
+
+                        return `
                         <tr>
-                            <td>${m.fecha}</td>
-                            <td>${m.producto_id}</td>
-                            <td><span class="badge ${m.tipo === 'entrada' ? 'badge-success' : 'badge-danger'}">${m.tipo.toUpperCase()}</span></td>
-                            <td>${m.cantidad}</td>
+                            <td>${m.fecha.substring(0, 16)}</td>
+                            <td title="${m.producto_id}">${m.producto_id.substring(0,8)}...</td>
+                            <td><span class="badge ${badgeClass}">${m.tipo}</span></td>
+                            <td><strong>${m.tipo === 'SALIDA' ? '-' : '+'}${m.cantidad}</strong></td>
+                            <td>${m.stock_antes}</td>
+                            <td><strong>${m.stock_despues}</strong></td>
                             <td>${m.motivo || '-'}</td>
                         </tr>
-                    `).join('')}
+                    `}).join('')}
                 </tbody>
             </table>
         `;
     } catch (e) {
-        main.innerHTML = `<h2>Error al cargar bodega</h2>`;
+        main.innerHTML = `<h2>Error al cargar el Kardex</h2>`;
+    }
+}
+
+function toggleCosto(tipo) {
+    const input = document.getElementById('costo-input');
+    if (tipo === 'ENTRADA') {
+        input.style.display = 'block';
+    } else {
+        input.style.display = 'none';
+        input.value = '';
     }
 }
 
@@ -313,15 +338,16 @@ function mostrarFormMovimiento() {
 
 async function registrarMovimiento(e) {
     e.preventDefault();
-    const endpoint = e.target.tipo.value === 'entrada' ? '/inventario/entrada' : '/inventario/salida';
     const body = {
         producto_id: e.target.producto_id.value,
+        tipo: e.target.tipo.value,
         cantidad: parseInt(e.target.cantidad.value),
+        costo_unitario: e.target.costo.value ? parseFloat(e.target.costo.value) : null,
         motivo: e.target.motivo.value
     };
 
     try {
-        await apiFetch(endpoint, {
+        await apiFetch('/inventario/movimientos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
