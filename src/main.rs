@@ -3,6 +3,8 @@ mod db;
 mod errors;
 mod handlers;
 mod models;
+mod repositories;
+mod services;
 
 use axum::{
     middleware,

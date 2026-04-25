@@ -6,15 +6,7 @@ use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use crate::errors::AppError;
-use crate::models::MovimientoInventario;
-
-#[derive(Debug, Deserialize)]
-pub struct FiltrosMovimiento {
-    pub producto_id: Option<String>,
-    pub tipo: Option<String>,        // "entrada" o "salida"
-    pub fecha_desde: Option<String>, // formato YYYY-MM-DD
-    pub fecha_hasta: Option<String>,
-}
+use crate::models::inventario::{MovimientoInventario, FiltrosMovimiento};
 
 pub async fn listar_movimientos(
     State(pool): State<SqlitePool>,

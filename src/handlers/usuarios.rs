@@ -2,13 +2,7 @@ use axum::{extract::State, Json};
 use sqlx::SqlitePool;
 
 use crate::errors::AppError;
-use crate::models::UsuarioPublico;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-pub struct ActualizarRol {
-    pub rol: String,
-}
+use crate::models::usuario::{UsuarioPublico, ActualizarRol};
 
 pub async fn listar(
     State(pool): State<SqlitePool>,

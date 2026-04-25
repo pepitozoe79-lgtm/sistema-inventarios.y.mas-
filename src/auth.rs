@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
-use crate::models::{AuthResponse, LoginRequest, NuevoUsuario, Usuario, UsuarioPublico};
+use crate::models::usuario::{AuthResponse, LoginRequest, NuevoUsuario, Usuario, UsuarioPublico};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {

@@ -4,7 +4,8 @@ use uuid::Uuid;
 
 use crate::auth::Claims;
 use crate::errors::AppError;
-use crate::models::{CrearVentaRequest, DetalleVenta, Venta, VentaCompleta};
+use crate::models::venta::{CrearVentaRequest, DetalleVenta, Venta, VentaCompleta};
+use crate::models::producto::Producto;
 
 pub async fn crear_venta(
     Extension(claims): Extension<Claims>,
@@ -23,7 +24,7 @@ pub async fn crear_venta(
 
     for linea in &venta_req.lineas {
         // Obtener producto y verificar stock
-        let producto = sqlx::query_as::<_, crate::models::Producto>("SELECT * FROM productos WHERE id = ?")
+        let producto = sqlx::query_as::<_, Producto>("SELECT * FROM productos WHERE id = ?")
             .bind(&linea.producto_id)
             .fetch_optional(&mut *tx)
             .await

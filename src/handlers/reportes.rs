@@ -1,22 +1,10 @@
 use axum::{extract::{State, Query}, response::IntoResponse, http::header};
 use sqlx::SqlitePool;
 use crate::errors::AppError;
-use crate::models::{Producto, Venta};
-use genpdf::elements::{TableLayout, Text, PaddedElement};
+use crate::models::producto::{Producto, FiltrosProducto};
+use crate::models::venta::{Venta, FiltrosVentas};
+use genpdf::elements::{TableLayout, Text};
 use genpdf::{style, Element};
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-pub struct FiltrosProducto {
-    pub solo_stock_bajo: Option<bool>,
-    pub stock_minimo: Option<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct FiltrosVentas {
-    pub mes: Option<u32>,
-    pub anio: Option<i32>,
-}
 
 pub async fn reporte_productos(
     State(pool): State<SqlitePool>,

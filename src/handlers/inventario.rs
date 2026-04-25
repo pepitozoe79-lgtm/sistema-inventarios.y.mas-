@@ -4,7 +4,8 @@ use uuid::Uuid;
 
 use crate::auth::Claims;
 use crate::errors::AppError;
-use crate::models::{MovimientoInventario, NuevoMovimiento};
+use crate::models::inventario::{MovimientoInventario, NuevoMovimiento};
+use crate::models::producto::Producto;
 
 async fn registrar_movimiento(
     pool: &SqlitePool,
@@ -15,7 +16,7 @@ async fn registrar_movimiento(
     let mut tx = pool.begin().await.map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Verificar que el producto existe
-    let producto = sqlx::query_as::<_, crate::models::Producto>("SELECT * FROM productos WHERE id = ?")
+    let producto = sqlx::query_as::<_, Producto>("SELECT * FROM productos WHERE id = ?")
         .bind(&movimiento.producto_id)
         .fetch_optional(&mut *tx)
         .await
