@@ -72,7 +72,19 @@ pub async fn require_admin(
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    if claims.rol == "admin" {
+    if claims.rol == "admin" || claims.rol == "superadmin" {
+        Ok(next.run(req).await)
+    } else {
+        Err(StatusCode::FORBIDDEN)
+    }
+}
+
+pub async fn require_superadmin(
+    Extension(claims): Extension<Claims>,
+    req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    if claims.rol == "superadmin" {
         Ok(next.run(req).await)
     } else {
         Err(StatusCode::FORBIDDEN)

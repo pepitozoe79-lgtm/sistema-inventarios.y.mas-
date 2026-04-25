@@ -5,3 +5,4 @@ pub mod dashboard_service;
 pub mod analytics_service;
 pub mod predictive_service;
 pub mod plan_service;
+pub mod superadmin_service;

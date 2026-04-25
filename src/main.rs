@@ -36,6 +36,7 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::gastos::eliminar,
         handlers::analytics::obtener_analytics,
         handlers::predictivo::obtener_predicciones,
+        handlers::superadmin::obtener_dashboard_global,
     ),
     components(
         schemas(
@@ -58,6 +59,10 @@ use utoipa_swagger_ui::SwaggerUi;
             models::gasto::CrearGastoDto,
             models::gasto::ApiResponseGasto,
             models::gasto::ApiListResponseGasto,
+            models::superadmin::PlatformStats,
+            models::superadmin::TenantInfo,
+            models::superadmin::SuperAdminDashboard,
+            models::superadmin::ApiResponseSuperAdmin,
             models::analytics::AnalyticsData,
             models::analytics::ApiResponseAnalytics,
             models::predictivo::PredictiveData,
@@ -72,9 +77,9 @@ use utoipa_swagger_ui::SwaggerUi;
         )
     ),
     tags(
-        (name = "Billing", description = "Suscripciones y Pagos (Stripe)"),
-        (name = "Predictivo", description = "Inteligencia Predictiva"),
-        (name = "Dashboard", description = "Dashboard en tiempo real")
+        (name = "SuperAdmin", description = "Control global de la plataforma SaaS"),
+        (name = "Billing", description = "Suscripciones y Pagos"),
+        (name = "Predictivo", description = "Inteligencia Predictiva")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -105,14 +110,19 @@ async fn main() {
     let pool = db::init_db().await.expect("No se pudo conectar a la DB");
     db::run_migrations(&pool).await.unwrap();
 
-    // Rutas públicas (Incluye el Webhook de Stripe)
+    // Rutas públicas
     let rutas_publicas = Router::new()
         .route("/api/v1/health", get(|| async { "OK" }))
         .route("/api/v1/registro", post(handlers::auth_handlers::registro_saas))
         .route("/api/v1/login", post(handlers::auth_handlers::login))
         .route("/api/v1/billing/webhook", post(handlers::billing::stripe_webhook));
 
-    // Rutas protegidas (JWT requerido)
+    // Rutas de SuperAdmin (Acceso Global)
+    let rutas_superadmin = Router::new()
+        .route("/superadmin/dashboard", get(handlers::superadmin::obtener_dashboard_global))
+        .layer(middleware::from_fn(auth::require_superadmin));
+
+    // Rutas protegidas por Tenant
     let rutas_protegidas = Router::new()
         .route("/dashboard", get(handlers::dashboard::obtener_dashboard))
         .route("/analytics", get(handlers::analytics::obtener_analytics))
@@ -120,26 +130,21 @@ async fn main() {
         .route("/billing/checkout", post(handlers::billing::create_checkout_session))
         .route("/productos", get(handlers::productos::listar))
         .route("/productos/:id", get(handlers::productos::obtener))
-        // Rutas que requieren ser Admin
         .route("/productos", post(handlers::productos::crear).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/productos/:id", put(handlers::productos::actualizar).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/productos/:id", delete(handlers::productos::eliminar).route_layer(middleware::from_fn(auth::require_admin)))
-        .route("/usuarios", get(handlers::usuarios::listar).route_layer(middleware::from_fn(auth::require_admin)))
-        .route("/usuarios/:id/rol", put(handlers::usuarios::actualizar_rol).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/gastos", post(handlers::gastos::crear).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/gastos/:id", delete(handlers::gastos::eliminar).route_layer(middleware::from_fn(auth::require_admin)))
-        // Rutas accesibles por cualquier usuario autenticado
         .route("/gastos", get(handlers::gastos::listar))
         .route("/inventario/movimientos", get(handlers::movimientos::listar_movimientos))
         .route("/inventario/movimientos", post(handlers::movimientos::registrar))
         .route("/ventas", post(handlers::ventas::crear_venta))
         .route("/ventas", get(handlers::ventas::listar_ventas))
-        .route("/ventas/:id/factura", get(handlers::facturas::generar_factura))
-        .route("/reportes/inventario", get(handlers::reportes::reporte_productos))
-        .route("/reportes/ventas", get(handlers::reportes::reporte_ventas));
+        .route("/ventas/:id/factura", get(handlers::facturas::generar_factura));
 
     let app = Router::new()
         .merge(rutas_publicas)
+        .nest("/api/v1", rutas_superadmin)
         .nest("/api/v1", rutas_protegidas.layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(

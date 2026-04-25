@@ -11,3 +11,4 @@ pub mod gastos;
 pub mod analytics;
 pub mod predictivo;
 pub mod billing;
+pub mod superadmin;

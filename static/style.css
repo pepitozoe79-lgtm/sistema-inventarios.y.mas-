@@ -328,3 +328,38 @@ tr:hover { background: #f8fafc; }
     margin-bottom: 2rem;
     box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
 }
+
+/* --- SuperAdmin Styles --- */
+.superadmin-header {
+    background: #0f172a;
+    color: white;
+    padding: 2.5rem;
+    border-radius: 16px;
+    margin-bottom: 2rem;
+}
+
+.superadmin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.5rem;
+}
+
+.kpi-global {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.kpi-global h4 { margin: 0; font-size: 0.75rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi-global p { margin: 0.5rem 0 0; font-size: 1.8rem; font-weight: 800; color: #38bdf8; }
+
+.tenant-table {
+    width: 100%;
+    border-spacing: 0;
+    margin-top: 2rem;
+}
+
+.tenant-table th { background: #f8fafc; color: #64748b; font-size: 0.75rem; padding: 1rem; text-align: left; border-bottom: 2px solid #e2e8f0; }
+.tenant-table td { padding: 1rem; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }

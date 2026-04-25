@@ -9,3 +9,4 @@ pub mod analytics;
 pub mod predictivo;
 pub mod tenant;
 pub mod plan;
+pub mod superadmin;
