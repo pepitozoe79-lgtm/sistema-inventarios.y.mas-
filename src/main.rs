@@ -60,8 +60,6 @@ use utoipa_swagger_ui::SwaggerUi;
             models::gasto::ApiListResponseGasto,
             models::analytics::AnalyticsData,
             models::analytics::ApiResponseAnalytics,
-            models::predictivo::PrediccionStock,
-            models::predictivo::ProyeccionVentas,
             models::predictivo::PredictiveData,
             models::predictivo::ApiResponsePredictive,
             models::dashboard::DashboardStats,
@@ -74,8 +72,8 @@ use utoipa_swagger_ui::SwaggerUi;
         )
     ),
     tags(
-        (name = "Predictivo", description = "Inteligencia Predictiva y Forecast"),
-        (name = "Analytics", description = "BI e Inteligencia de Negocio"),
+        (name = "Billing", description = "Suscripciones y Pagos (Stripe)"),
+        (name = "Predictivo", description = "Inteligencia Predictiva"),
         (name = "Dashboard", description = "Dashboard en tiempo real")
     ),
     modifiers(&SecurityAddon)
@@ -107,17 +105,19 @@ async fn main() {
     let pool = db::init_db().await.expect("No se pudo conectar a la DB");
     db::run_migrations(&pool).await.unwrap();
 
-    // Rutas públicas
+    // Rutas públicas (Incluye el Webhook de Stripe)
     let rutas_publicas = Router::new()
         .route("/api/v1/health", get(|| async { "OK" }))
-        .route("/api/v1/registro", post(handlers::auth_handlers::registro))
-        .route("/api/v1/login", post(handlers::auth_handlers::login));
+        .route("/api/v1/registro", post(handlers::auth_handlers::registro_saas))
+        .route("/api/v1/login", post(handlers::auth_handlers::login))
+        .route("/api/v1/billing/webhook", post(handlers::billing::stripe_webhook));
 
     // Rutas protegidas (JWT requerido)
     let rutas_protegidas = Router::new()
         .route("/dashboard", get(handlers::dashboard::obtener_dashboard))
         .route("/analytics", get(handlers::analytics::obtener_analytics))
         .route("/predictivo", get(handlers::predictivo::obtener_predicciones))
+        .route("/billing/checkout", post(handlers::billing::create_checkout_session))
         .route("/productos", get(handlers::productos::listar))
         .route("/productos/:id", get(handlers::productos::obtener))
         // Rutas que requieren ser Admin

@@ -271,7 +271,31 @@ tr:hover { background: #f8fafc; }
     display: inline-block;
 }
 .growth-up { background: #dcfce7; color: #166534; }
-.growth-down { background: #fee2e2; color: #991b1b; }
+.growth-down { background: #fee2e2; color: #991b1b; }/* --- Billing Styles --- */
+.upgrade-banner {
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+    color: #451a03;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem;
+    text-align: center;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3);
+    transition: transform 0.2s;
+}
+
+.upgrade-banner:hover { transform: scale(1.02); }
+
+.plan-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+    text-transform: uppercase;
+}
+.plan-basic { background: #e2e8f0; color: #475569; }
+.plan-pro { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
 
 /* --- Predictive Styles --- */
 .risk-card {
