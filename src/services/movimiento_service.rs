@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 use crate::models::inventario::{MovimientoInventario, NuevoMovimientoDto};
 use crate::repositories::movimiento_repository::MovimientoRepository;
 use crate::repositories::producto_repository::ProductoRepository;
+use crate::services::webhook_service::WebhookService;
 use crate::errors::AppError;
 
 pub struct MovimientoService;
@@ -19,11 +20,9 @@ impl MovimientoService {
     ) -> Result<MovimientoInventario, AppError> {
         let mut tx = pool.begin().await?;
 
-        // 1. Obtener producto (Aislado por tenant)
         let producto = ProductoRepository::obtener_por_id(pool, tenant_id, &dto.producto_id).await?
             .ok_or_else(|| AppError::NotFound("Producto no encontrado".into()))?;
 
-        // 2. Calcular nuevo stock
         let nuevo_stock = match dto.tipo.as_str() {
             "ENTRADA" => producto.stock_actual + dto.cantidad,
             "SALIDA" => {
@@ -32,11 +31,10 @@ impl MovimientoService {
                 }
                 producto.stock_actual - dto.cantidad
             },
-            "AJUSTE" => dto.cantidad, // En ajuste, la cantidad es el nuevo total
+            "AJUSTE" => dto.cantidad,
             _ => return Err(AppError::ValidationError("Tipo de movimiento inválido".into())),
         };
 
-        // 3. Actualizar producto
         sqlx::query("UPDATE productos SET stock_actual = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?")
             .bind(nuevo_stock)
             .bind(&producto.id)
@@ -44,7 +42,6 @@ impl MovimientoService {
             .execute(&mut *tx)
             .await?;
 
-        // 4. Registrar movimiento
         let movimiento = MovimientoRepository::registrar_transaccional(
             &mut tx,
             tenant_id,
@@ -55,6 +52,29 @@ impl MovimientoService {
         ).await?;
 
         tx.commit().await?;
+
+        // 📡 EVENTO: stock.low
+        if nuevo_stock <= 5 {
+            let pool_clone = pool.clone();
+            let tenant_id_clone = tenant_id.to_string();
+            let producto_id = producto.id.clone();
+            let nombre = producto.nombre.clone();
+            
+            tokio::spawn(async move {
+                WebhookService::despachar_evento(
+                    pool_clone,
+                    tenant_id_clone,
+                    "stock.low".into(),
+                    serde_json::json!({
+                        "producto_id": producto_id,
+                        "nombre": nombre,
+                        "stock_actual": nuevo_stock,
+                        "alerta": "Stock crítico alcanzado"
+                    }),
+                ).await;
+            });
+        }
+
         Ok(movimiento)
     }
 }

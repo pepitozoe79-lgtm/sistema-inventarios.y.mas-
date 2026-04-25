@@ -76,14 +76,17 @@ use utoipa_swagger_ui::SwaggerUi;
             models::api_key::ApiKey,
             models::api_key::CrearApiKeyDto,
             models::api_key::ApiKeyGeneradaResponse,
+            models::webhook::WebhookEndpoint,
+            models::webhook::CrearWebhookDto,
+            models::webhook::WebhookLog,
             models::responses::Meta,
             errors::ErrorResponse,
         )
     ),
     tags(
-        (name = "Integración", description = "API Pública para desarrolladores (v2)"),
-        (name = "SuperAdmin", description = "Control global de la plataforma SaaS"),
-        (name = "Billing", description = "Suscripciones y Pagos")
+        (name = "Integración", description = "Webhooks y API Pública"),
+        (name = "SuperAdmin", description = "Control global SaaS"),
+        (name = "Negocio", description = "ERP Core")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -132,11 +135,15 @@ async fn main() {
         .route("/superadmin/dashboard", get(handlers::superadmin::obtener_dashboard_global))
         .layer(middleware::from_fn(auth::require_superadmin));
 
-    // Rutas de Gestión de API Keys (v1 - Internas)
-    let rutas_api_keys = Router::new()
+    // Rutas de Configuración (v1 - Internas)
+    let rutas_config = Router::new()
         .route("/settings/api-keys", get(handlers::api_keys::listar_keys))
         .route("/settings/api-keys", post(handlers::api_keys::crear_key))
-        .route("/settings/api-keys/:id", delete(handlers::api_keys::eliminar_key));
+        .route("/settings/api-keys/:id", delete(handlers::api_keys::eliminar_key))
+        .route("/settings/webhooks", get(handlers::webhooks::listar_endpoints))
+        .route("/settings/webhooks", post(handlers::webhooks::crear_endpoint))
+        .route("/settings/webhooks/logs", get(handlers::webhooks::listar_logs))
+        .route("/settings/webhooks/:id", delete(handlers::webhooks::eliminar_endpoint));
 
     // Rutas Públicas v2 (Integraciones)
     let rutas_v2 = Router::new()
@@ -157,7 +164,7 @@ async fn main() {
         .route("/inventario/movimientos", post(handlers::movimientos::registrar))
         .route("/ventas", post(handlers::ventas::crear_venta))
         .route("/ventas", get(handlers::ventas::listar_ventas))
-        .merge(rutas_api_keys);
+        .merge(rutas_config);
 
     let app = Router::new()
         .merge(rutas_publicas)

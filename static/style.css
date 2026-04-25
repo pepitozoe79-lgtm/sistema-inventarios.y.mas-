@@ -396,3 +396,41 @@ tr:hover { background: #f8fafc; }
     font-size: 0.7rem;
     margin-right: 0.4rem;
 }
+
+/* --- Webhook Styles --- */
+.log-row {
+    font-family: monospace;
+    font-size: 0.75rem;
+    padding: 0.8rem;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+.status-success { background: #10b981; box-shadow: 0 0 8px #10b981; }
+.status-error { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+.event-type-badge {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: lowercase;
+}
+
+.webhook-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}

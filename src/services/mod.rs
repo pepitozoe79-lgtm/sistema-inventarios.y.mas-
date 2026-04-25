@@ -6,3 +6,4 @@ pub mod analytics_service;
 pub mod predictive_service;
 pub mod plan_service;
 pub mod superadmin_service;
+pub mod webhook_service;

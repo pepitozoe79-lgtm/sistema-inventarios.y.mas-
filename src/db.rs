@@ -10,7 +10,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
-            -- 1. Tenants y Suscripciones (Existente)
+            -- 1. Infraestructura Base (Tenants, Auth, API Keys)
             CREATE TABLE IF NOT EXISTS tenants (
                 id TEXT PRIMARY KEY,
                 nombre TEXT NOT NULL,
@@ -27,19 +27,43 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- 2. API Keys para Integraciones Externas (NUEVO)
             CREATE TABLE IF NOT EXISTS api_keys (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
                 nombre TEXT NOT NULL,
                 hashed_key TEXT NOT NULL UNIQUE,
-                scopes TEXT NOT NULL, -- JSON o string separado por comas: "products:read,sales:write"
+                scopes TEXT NOT NULL,
                 creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
                 ultima_vez_usada TEXT,
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- 3. Usuarios, Productos, Ventas, etc. (Existente)
+            -- 2. Webhooks Outbound (NUEVO)
+            CREATE TABLE IF NOT EXISTS webhook_endpoints (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                url TEXT NOT NULL,
+                secret TEXT NOT NULL, -- HMAC Secret
+                event_types TEXT NOT NULL, -- "sale.created,stock.low"
+                active INTEGER DEFAULT 1,
+                creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(tenant_id) REFERENCES tenants(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS webhook_logs (
+                id TEXT PRIMARY KEY,
+                endpoint_id TEXT NOT NULL,
+                tenant_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                status_code INTEGER,
+                request_body TEXT,
+                response_body TEXT,
+                intentos INTEGER DEFAULT 1,
+                fecha TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(endpoint_id) REFERENCES webhook_endpoints(id)
+            );
+
+            -- 3. Negocio (Productos, Ventas, Kardex, Gastos)
             CREATE TABLE IF NOT EXISTS usuarios (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -111,7 +135,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            CREATE INDEX IF NOT EXISTS idx_api_keys_tenant ON api_keys(tenant_id);
+            CREATE INDEX IF NOT EXISTS idx_webhook_tenant ON webhook_endpoints(tenant_id);
             CREATE INDEX IF NOT EXISTS idx_productos_tenant ON productos(tenant_id);
         "#
     )
