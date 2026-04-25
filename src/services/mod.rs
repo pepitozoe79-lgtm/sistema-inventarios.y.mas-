@@ -10,3 +10,4 @@ pub mod webhook_service;
 pub mod integration_service;
 pub mod event_bus;
 pub mod ai_service;
+pub mod policy_engine;
