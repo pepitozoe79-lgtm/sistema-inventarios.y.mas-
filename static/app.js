@@ -62,7 +62,7 @@ async function login(e) {
         usuario = result.data.usuario;
         localStorage.setItem('token', token);
         localStorage.setItem('usuario', JSON.stringify(usuario));
-        mostrarDashboard();
+        mostrarDashboardUI();
     } catch (e) {
         console.error("Login failed", e);
     }
@@ -129,7 +129,7 @@ function mostrarRegistro() {
     `;
 }
 
-function mostrarDashboard() {
+function mostrarDashboardUI() {
     app.innerHTML = `
         <div class="dashboard">
             <nav class="sidebar">
@@ -138,6 +138,7 @@ function mostrarDashboard() {
                     <p>${usuario.username}</p>
                 </div>
                 <ul>
+                    <li onclick="cargarDashboard()">📊 Dashboard</li>
                     <li onclick="cargarPOS()">🛒 Punto de Venta (POS)</li>
                     <li onclick="cargarProductos()">📦 Productos</li>
                     <li onclick="cargarMovimientos()">🚛 Kardex / Bodega</li>
@@ -147,12 +148,87 @@ function mostrarDashboard() {
                 </ul>
             </nav>
             <main class="content" id="main-content">
-                <h1>Bienvenido al Sistema</h1>
-                <p>Selecciona una opción del menú para comenzar.</p>
+                <!-- Se carga vía cargarDashboard() -->
             </main>
         </div>
     `;
-    cargarPOS();
+    cargarDashboard();
+}
+
+// --- 📊 DASHBOARD (INTELIGENCIA) ---
+async function cargarDashboard() {
+    const main = document.getElementById('main-content');
+    main.innerHTML = '<h2>Analizando datos de negocio...</h2>';
+    
+    try {
+        const result = await apiFetch('/dashboard');
+        const { stats, top_productos, actividad } = result.data;
+
+        const maxQty = Math.max(...top_productos.map(p => p.cantidad), 1);
+
+        main.innerHTML = `
+            <h2>📊 Dashboard de Inteligencia</h2>
+            
+            <div class="dashboard-grid">
+                <div class="kpi-card" style="border-left-color: #2ecc71;">
+                    <h3>Ventas Hoy (Ingresos)</h3>
+                    <p>$${stats.ventas_hoy_total.toFixed(2)}</p>
+                </div>
+                <div class="kpi-card" style="border-left-color: #3498db;">
+                    <h3>Tickets Emitidos</h3>
+                    <p>${stats.ventas_hoy_cantidad}</p>
+                </div>
+                <div class="kpi-card" style="border-left-color: #9b59b6;">
+                    <h3>Unidades Vendidas</h3>
+                    <p>${stats.productos_vendidos_hoy}</p>
+                </div>
+                <div class="kpi-card" style="border-left-color: #e74c3c;">
+                    <h3>Alertas de Stock</h3>
+                    <p>${stats.alertas_stock_bajo}</p>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <!-- Gráfico de Top Productos -->
+                <div class="card">
+                    <h3>🏆 Top 5 Productos más Vendidos</h3>
+                    <div class="bar-chart-container">
+                        ${top_productos.map(p => {
+                            const width = (p.cantidad / maxQty) * 100;
+                            return `
+                                <div class="bar-row">
+                                    <div class="bar-label">${p.nombre}</div>
+                                    <div class="bar-track">
+                                        <div class="bar-fill" style="width: ${width}%"></div>
+                                    </div>
+                                    <div class="bar-value">${p.cantidad} und.</div>
+                                </div>
+                            `;
+                        }).join('')}
+                        ${top_productos.length === 0 ? '<p style="text-align:center; color:#999;">Sin ventas registradas</p>' : ''}
+                    </div>
+                </div>
+
+                <!-- Feed de Actividad -->
+                <div class="card">
+                    <h3>🕒 Actividad Reciente</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${actividad.map(a => `
+                            <li style="padding: 0.8rem 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span class="badge ${a.tipo === 'VENTA' ? 'badge-success' : 'badge-info'}" style="font-size: 0.7rem;">${a.tipo}</span>
+                                    <span style="margin-left: 0.5rem; font-size: 0.9rem;">${a.descripcion}</span>
+                                </div>
+                                <small style="color: #999;">${a.fecha.substring(11, 16)}</small>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        main.innerHTML = `<h2>Error al cargar inteligencia de negocio</h2>`;
+    }
 }
 
 // --- 🛒 PUNTO DE VENTA (POS) ---
@@ -166,207 +242,113 @@ async function cargarPOS() {
 
         main.innerHTML = `
             <div class="pos-container">
-                <!-- Columna 1: Catálogo -->
                 <div class="pos-column card">
                     <div style="padding: 1rem; border-bottom: 1px solid #eee;">
-                        <input type="text" id="pos-search" placeholder="Buscar producto (nombre o código)..." oninput="filtrarPOS(this.value)">
+                        <input type="text" id="pos-search" placeholder="Buscar producto..." oninput="filtrarPOS(this.value)">
                     </div>
-                    <div id="pos-product-list">
-                        ${renderPOSProducts(productosCache)}
-                    </div>
+                    <div id="pos-product-list">${renderPOSProducts(productosCache)}</div>
                 </div>
-
-                <!-- Columna 2: Carrito -->
                 <div class="pos-column card">
                     <h3 style="padding: 1rem; border-bottom: 1px solid #eee; margin:0;">🛒 Carrito</h3>
-                    <div id="pos-cart-list" style="flex-grow: 1;">
-                        <p style="text-align:center; padding: 2rem; color: #999;">El carrito está vacío</p>
-                    </div>
+                    <div id="pos-cart-list" style="flex-grow: 1;"><p style="text-align:center; padding: 2rem; color: #999;">Vacío</p></div>
                 </div>
-
-                <!-- Columna 3: Checkout -->
                 <div class="pos-column">
                     <div class="checkout-panel">
-                        <p style="margin:0; font-size: 0.9rem; opacity: 0.8;">TOTAL A PAGAR</p>
-                        <h1 id="pos-total" style="margin: 0.5rem 0; font-size: 2.5rem;">$0.00</h1>
-                        <button class="btn-secondary" style="width: 100%; font-size: 1.2rem; padding: 1rem; margin-top: 1rem;" onclick="finalizarVenta()">
-                            CONFIRMAR VENTA
-                        </button>
-                        <button class="btn-small" style="margin-top: 1rem; opacity: 0.7; color: white; background: transparent; border: 1px solid white;" onclick="vaciarCarrito()">
-                            Vaciar Carrito
-                        </button>
-                    </div>
-                    <div class="card" style="margin-top: 1rem; padding: 1rem;">
-                        <h4>Detalles</h4>
-                        <p id="pos-items-count">Productos: 0</p>
+                        <p style="margin:0; opacity: 0.8;">TOTAL</p>
+                        <h1 id="pos-total" style="margin: 0.5rem 0;">$0.00</h1>
+                        <button class="btn-secondary" style="width: 100%;" onclick="finalizarVenta()">CONFIRMAR VENTA</button>
                     </div>
                 </div>
             </div>
         `;
-    } catch (e) {
-        main.innerHTML = `<h2>Error al cargar el POS</h2>`;
-    }
+    } catch (e) {}
 }
 
 function renderPOSProducts(list) {
     return list.map(p => `
         <div class="product-item-pos" onclick="agregarAlCarrito('${p.id}')">
-            <div style="display: flex; justify-content: space-between;">
-                <strong>${p.nombre}</strong>
-                <span>$${p.precio_unitario.toFixed(2)}</span>
-            </div>
-            <div style="font-size: 0.8rem; color: #666; margin-top: 0.3rem;">
-                Código: ${p.codigo} | Stock: <span class="${p.stock_actual <= 5 ? 'text-danger' : ''}">${p.stock_actual}</span>
-            </div>
+            <div style="display: flex; justify-content: space-between;"><strong>${p.nombre}</strong><span>$${p.precio_unitario.toFixed(2)}</span></div>
+            <div style="font-size: 0.8rem; color: #666;">Stock: <span class="${p.stock_actual <= 5 ? 'text-danger' : ''}">${p.stock_actual}</span></div>
         </div>
     `).join('');
 }
 
 function filtrarPOS(query) {
-    const filtered = productosCache.filter(p => 
-        p.nombre.toLowerCase().includes(query.toLowerCase()) || 
-        p.codigo.toLowerCase().includes(query.toLowerCase())
-    );
+    const filtered = productosCache.filter(p => p.nombre.toLowerCase().includes(query.toLowerCase()) || p.codigo.toLowerCase().includes(query.toLowerCase()));
     document.getElementById('pos-product-list').innerHTML = renderPOSProducts(filtered);
 }
 
 function agregarAlCarrito(id) {
-    const producto = productosCache.find(p => p.id === id);
-    const enCarrito = carrito.find(item => item.id === id);
-
-    if (enCarrito) {
-        if (enCarrito.cantidad + 1 > producto.stock_actual) {
-            alert(`⚠️ Stock insuficiente para ${producto.nombre}`);
-            return;
-        }
-        enCarrito.cantidad++;
+    const p = productosCache.find(x => x.id === id);
+    const item = carrito.find(x => x.id === id);
+    if (item) {
+        if (item.cantidad + 1 > p.stock_actual) return alert("Stock insuficiente");
+        item.cantidad++;
     } else {
-        if (producto.stock_actual < 1) {
-            alert(`⚠️ No hay stock disponible para ${producto.nombre}`);
-            return;
-        }
-        carrito.push({ ...producto, cantidad: 1 });
+        if (p.stock_actual < 1) return alert("Sin stock");
+        carrito.push({ ...p, cantidad: 1 });
     }
     actualizarVistaCarrito();
 }
 
 function actualizarCantidad(id, delta) {
-    const item = carrito.find(i => i.id === id);
-    const original = productosCache.find(p => p.id === id);
-
-    if (item.cantidad + delta <= 0) {
-        carrito = carrito.filter(i => i.id !== id);
-    } else {
-        if (item.cantidad + delta > original.stock_actual) {
-            alert("⚠️ Stock máximo alcanzado");
-            return;
-        }
-        item.cantidad += delta;
-    }
+    const item = carrito.find(x => x.id === id);
+    const p = productosCache.find(x => x.id === id);
+    if (item.cantidad + delta <= 0) carrito = carrito.filter(x => x.id !== id);
+    else if (item.cantidad + delta > p.stock_actual) return alert("Máximo stock");
+    else item.cantidad += delta;
     actualizarVistaCarrito();
-}
-
-function vaciarCarrito() {
-    if (confirm("¿Vaciar el carrito?")) {
-        carrito = [];
-        actualizarVistaCarrito();
-    }
 }
 
 function actualizarVistaCarrito() {
     const list = document.getElementById('pos-cart-list');
     const totalEl = document.getElementById('pos-total');
-    const countEl = document.getElementById('pos-items-count');
-
     if (carrito.length === 0) {
-        list.innerHTML = `<p style="text-align:center; padding: 2rem; color: #999;">El carrito está vacío</p>`;
+        list.innerHTML = `<p style="text-align:center; padding: 2rem; color: #999;">Vacío</p>`;
         totalEl.innerText = '$0.00';
-        countEl.innerText = 'Productos: 0';
         return;
     }
-
     let total = 0;
     list.innerHTML = carrito.map(item => {
-        const subtotal = item.cantidad * item.precio_unitario;
-        total += subtotal;
-        return `
-            <div class="cart-item">
-                <div style="flex-grow: 1;">
-                    <strong>${item.nombre}</strong><br>
-                    <small>$${item.precio_unitario.toFixed(2)} x ${item.cantidad}</small>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <button class="btn-small" onclick="actualizarCantidad('${item.id}', -1)">-</button>
-                    <span>${item.cantidad}</span>
-                    <button class="btn-small" onclick="actualizarCantidad('${item.id}', 1)">+</button>
-                    <strong style="margin-left: 1rem;">$${subtotal.toFixed(2)}</strong>
-                </div>
-            </div>
-        `;
+        total += item.cantidad * item.precio_unitario;
+        return `<div class="cart-item"><div>${item.nombre}</div><div><button onclick="actualizarCantidad('${item.id}', -1)">-</button> ${item.cantidad} <button onclick="actualizarCantidad('${item.id}', 1)">+</button></div></div>`;
     }).join('');
-
     totalEl.innerText = `$${total.toFixed(2)}`;
-    countEl.innerText = `Productos: ${carrito.length}`;
 }
 
 async function finalizarVenta() {
-    if (carrito.length === 0) return alert("El carrito está vacío");
-
-    const lineas = carrito.map(item => ({
-        producto_id: item.id,
-        cantidad: item.cantidad
-    }));
-
+    if (carrito.length === 0) return;
     try {
         await apiFetch('/ventas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lineas })
+            body: JSON.stringify({ lineas: carrito.map(i => ({ producto_id: i.id, cantidad: i.cantidad })) })
         });
-        alert("💰 ¡Venta realizada con éxito!");
-        cargarPOS(); // Reiniciar POS
-    } catch (e) {
-        console.error("Venta fallida", e);
-    }
+        alert("💰 Venta Exitosa");
+        cargarDashboard(); // Volver al dashboard después de vender
+    } catch (e) {}
 }
 
-// --- Módulos Restantes (Similares a los anteriores, actualizados con apiFetch y wrappers) ---
-
-// 📦 PRODUCTOS (Actualizado con API v1)
+// 📦 PRODUCTOS
 async function cargarProductos() {
     const main = document.getElementById('main-content');
     try {
         const result = await apiFetch('/productos');
         const productos = result.data;
         main.innerHTML = `
-            <div class="header-actions">
-                <h2>📦 Productos</h2>
-                <button class="btn-primary" onclick="mostrarFormProducto()">+ Nuevo producto</button>
-            </div>
+            <div class="header-actions"><h2>📦 Productos</h2><button class="btn-primary" onclick="mostrarFormProducto()">+ Nuevo</button></div>
             <div id="form-producto" class="card" style="display:none; margin-bottom: 2rem;">
                 <h3>Nuevo Producto</h3>
                 <form onsubmit="crearProducto(event)">
                     <input type="text" name="codigo" placeholder="Código" required>
                     <input type="text" name="nombre" placeholder="Nombre" required>
-                    <input type="text" name="descripcion" placeholder="Descripción">
-                    <input type="number" step="0.01" name="precio" placeholder="Precio Unitario" required>
+                    <input type="number" step="0.01" name="precio" placeholder="Precio" required>
                     <button type="submit" class="btn-primary">Guardar</button>
                 </form>
             </div>
             <table class="card">
-                <thead>
-                    <tr><th>Código</th><th>Nombre</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr>
-                </thead>
-                <tbody>
-                    ${productos.map(p => `
-                        <tr>
-                            <td>${p.codigo}</td><td>${p.nombre}</td>
-                            <td>$${p.precio_unitario.toFixed(2)}</td>
-                            <td><span class="badge ${p.stock_actual <= 5 ? 'badge-danger' : 'badge-success'}">${p.stock_actual}</span></td>
-                            <td><button onclick="eliminarProducto('${p.id}')">🗑️</button></td>
-                        </tr>
-                    `).join('')}
-                </tbody>
+                <thead><tr><th>Código</th><th>Nombre</th><th>Precio</th><th>Stock</th></tr></thead>
+                <tbody>${productos.map(p => `<tr><td>${p.codigo}</td><td>${p.nombre}</td><td>$${p.precio_unitario}</td><td>${p.stock_actual}</td></tr>`).join('')}</tbody>
             </table>
         `;
     } catch (e) {}
@@ -378,23 +360,15 @@ async function crearProducto(e) {
         await apiFetch('/productos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                codigo: e.target.codigo.value,
-                nombre: e.target.nombre.value,
-                descripcion: e.target.descripcion.value,
-                precio_unitario: parseFloat(e.target.precio.value)
-            })
+            body: JSON.stringify({ codigo: e.target.codigo.value, nombre: e.target.nombre.value, precio_unitario: parseFloat(e.target.precio.value) })
         });
         cargarProductos();
     } catch (e) {}
 }
 
-async function eliminarProducto(id) {
-    if (!confirm('¿Seguro?')) return;
-    try {
-        await apiFetch(`/productos/${id}`, { method: 'DELETE' });
-        cargarProductos();
-    } catch (e) {}
+function mostrarFormProducto() {
+    const f = document.getElementById('form-producto');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
 }
 
 // 🚛 KARDEX
@@ -404,40 +378,22 @@ async function cargarMovimientos() {
         const result = await apiFetch('/inventario/movimientos');
         const movimientos = result.data;
         main.innerHTML = `
-            <h2>🚛 Historial de Movimientos (Kardex)</h2>
+            <h2>🚛 Kardex de Bodega</h2>
             <table class="card">
-                <thead><tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Antes</th><th>Después</th><th>Motivo</th></tr></thead>
-                <tbody>
-                    ${movimientos.map(m => `
-                        <tr>
-                            <td>${m.fecha.substring(0, 16)}</td>
-                            <td><span class="badge ${m.tipo === 'ENTRADA' ? 'badge-success' : m.tipo === 'SALIDA' ? 'badge-danger' : 'badge-warning'}">${m.tipo}</span></td>
-                            <td>${m.cantidad}</td><td>${m.stock_antes}</td><td><strong>${m.stock_despues}</strong></td><td>${m.motivo || '-'}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Cant</th><th>Antes</th><th>Después</th></tr></thead>
+                <tbody>${movimientos.map(m => `<tr><td>${m.fecha.substring(11, 16)}</td><td>${m.tipo}</td><td>${m.cantidad}</td><td>${m.stock_antes}</td><td>${m.stock_despues}</td></tr>`).join('')}</tbody>
             </table>
         `;
     } catch (e) {}
 }
 
-// 💰 HISTORIAL VENTAS
+// 💰 VENTAS
 async function cargarVentas() {
     const main = document.getElementById('main-content');
     try {
         const result = await apiFetch('/ventas');
         const ventas = result.data;
-        main.innerHTML = `
-            <h2>💰 Historial de Ventas</h2>
-            <table class="card">
-                <thead><tr><th>Fecha</th><th>Usuario</th><th>Total</th></tr></thead>
-                <tbody>
-                    ${ventas.map(v => `
-                        <tr><td>${v.fecha}</td><td>${v.usuario_id.substring(0,8)}...</td><td>$${v.total.toFixed(2)}</td></tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
+        main.innerHTML = `<h2>💰 Historial de Ventas</h2><table class="card"><thead><tr><th>Fecha</th><th>Total</th></tr></thead><tbody>${ventas.map(v => `<tr><td>${v.fecha}</td><td>$${v.total.toFixed(2)}</td></tr>`).join('')}</tbody></table>`;
     } catch (e) {}
 }
 
@@ -447,39 +403,14 @@ async function cargarUsuarios() {
     try {
         const result = await apiFetch('/usuarios');
         const usuariosList = result.data;
-        main.innerHTML = `
-            <h2>👥 Gestión de Usuarios</h2>
-            <table class="card">
-                <thead><tr><th>Usuario</th><th>Rol</th><th>Cambiar</th></tr></thead>
-                <tbody>
-                    ${usuariosList.map(u => `
-                        <tr><td>${u.username}</td><td><span class="badge">${u.rol}</span></td><td>
-                            <select onchange="actualizarRol('${u.id}', this.value)">
-                                <option value="usuario" ${u.rol === 'usuario' ? 'selected' : ''}>Usuario</option>
-                                <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Admin</option>
-                            </select>
-                        </td></tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    } catch (e) {}
-}
-
-async function actualizarRol(id, nuevoRol) {
-    try {
-        await apiFetch(`/usuarios/${id}/rol`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rol: nuevoRol })
-        });
-        alert("Rol actualizado");
+        main.innerHTML = `<h2>👥 Usuarios</h2><table class="card"><thead><tr><th>Usuario</th><th>Rol</th></tr></thead><tbody>${usuariosList.map(u => `<tr><td>${u.username}</td><td>${u.rol}</td></tr>`).join('')}</tbody></table>`;
     } catch (e) {}
 }
 
 // Inicialización
 if (token) {
-    mostrarDashboard();
+    mostrarDashboardUI();
 } else {
     mostrarLogin();
 }
+function mostrarFormMovimiento() { /* No usado en esta simplificación visual */ }

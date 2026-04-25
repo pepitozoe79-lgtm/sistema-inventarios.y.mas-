@@ -1,3 +1,4 @@
 pub mod producto_service;
 pub mod movimiento_service;
 pub mod venta_service;
+pub mod dashboard_service;

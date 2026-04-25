@@ -123,6 +123,41 @@ th, td {
     border-bottom: 1px solid var(--border);
 }
 
+/* --- Dashboard Styles --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    text-align: center;
+    border-left: 5px solid var(--primary);
+}
+
+.kpi-card h3 { margin: 0; font-size: 0.9rem; color: #666; text-transform: uppercase; }
+.kpi-card p { margin: 0.5rem 0 0; font-size: 1.8rem; font-weight: bold; color: var(--text); }
+
+.bar-chart-container {
+    margin-top: 2rem;
+}
+
+.bar-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.8rem;
+}
+
+.bar-label { width: 150px; font-size: 0.9rem; }
+.bar-track { flex-grow: 1; background: #eee; height: 20px; border-radius: 10px; overflow: hidden; position: relative; }
+.bar-fill { background: var(--primary); height: 100%; border-radius: 10px; transition: width 1s ease-out; }
+.bar-value { margin-left: 1rem; font-weight: bold; font-size: 0.9rem; }
+
 /* --- POS Styles --- */
 .pos-container {
     display: grid;

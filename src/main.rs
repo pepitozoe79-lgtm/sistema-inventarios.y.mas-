@@ -30,6 +30,7 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::movimientos::registrar,
         handlers::ventas::listar_ventas,
         handlers::ventas::crear_venta,
+        handlers::dashboard::obtener_dashboard,
     ),
     components(
         schemas(
@@ -48,14 +49,20 @@ use utoipa_swagger_ui::SwaggerUi;
             models::venta::VentaCompletaResponse,
             models::venta::ApiResponseVenta,
             models::venta::ApiListResponseVenta,
+            models::dashboard::DashboardStats,
+            models::dashboard::TopProducto,
+            models::dashboard::ActividadReciente,
+            models::dashboard::DashboardData,
+            models::dashboard::ApiResponseDashboard,
             models::responses::Meta,
             errors::ErrorResponse,
         )
     ),
     tags(
+        (name = "Dashboard", description = "Inteligencia de negocio y métricas"),
         (name = "Productos", description = "Gestión de productos"),
         (name = "Inventario", description = "Movimientos de bodega (Kardex)"),
-        (name = "Ventas", description = "Procesamiento de ventas transaccionales")
+        (name = "Ventas", description = "Procesamiento de ventas")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -95,6 +102,7 @@ async fn main() {
 
     // Rutas protegidas (JWT requerido)
     let rutas_protegidas = Router::new()
+        .route("/dashboard", get(handlers::dashboard::obtener_dashboard))
         .route("/productos", get(handlers::productos::listar))
         .route("/productos/:id", get(handlers::productos::obtener))
         // Rutas que requieren ser Admin

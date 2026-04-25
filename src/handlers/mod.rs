@@ -1,7 +1,8 @@
 pub mod auth_handlers;
-pub mod inventario;
 pub mod productos;
-pub mod usuarios;
+pub mod inventario;
 pub mod ventas;
+pub mod usuarios;
 pub mod movimientos;
 pub mod reportes;
+pub mod dashboard;
