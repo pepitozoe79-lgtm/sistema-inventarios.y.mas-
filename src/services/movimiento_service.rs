@@ -7,55 +7,54 @@ use crate::errors::AppError;
 pub struct MovimientoService;
 
 impl MovimientoService {
-    pub async fn listar_movimientos(pool: &SqlitePool) -> Result<Vec<MovimientoInventario>, AppError> {
-        let movimientos = MovimientoRepository::listar(pool).await?;
-        Ok(movimientos)
+    pub async fn listar_movimientos(pool: &SqlitePool, tenant_id: &str) -> Result<Vec<MovimientoInventario>, AppError> {
+        Ok(MovimientoRepository::listar(pool, tenant_id).await?)
     }
 
     pub async fn registrar_movimiento(
-        pool: &SqlitePool, 
-        movimiento: NuevoMovimientoDto,
-        usuario_id: Option<String>
+        pool: &SqlitePool,
+        tenant_id: &str,
+        usuario_id: String,
+        dto: NuevoMovimientoDto
     ) -> Result<MovimientoInventario, AppError> {
         let mut tx = pool.begin().await?;
 
-        // 1. Obtener producto y stock actual
-        let producto = ProductoRepository::obtener_por_id(pool, &movimiento.producto_id).await?
+        // 1. Obtener producto (Aislado por tenant)
+        let producto = ProductoRepository::obtener_por_id(pool, tenant_id, &dto.producto_id).await?
             .ok_or_else(|| AppError::NotFound("Producto no encontrado".into()))?;
 
-        let stock_antes = producto.stock_actual;
-        
-        // 2. Calcular nuevo stock según el tipo
-        let stock_despues = match movimiento.tipo.as_str() {
-            "ENTRADA" => stock_antes + movimiento.cantidad,
+        // 2. Calcular nuevo stock
+        let nuevo_stock = match dto.tipo.as_str() {
+            "ENTRADA" => producto.stock_actual + dto.cantidad,
             "SALIDA" => {
-                if stock_antes < movimiento.cantidad {
-                    return Err(AppError::Conflict("Stock insuficiente para realizar la salida".into()));
+                if producto.stock_actual < dto.cantidad {
+                    return Err(AppError::Conflict("Stock insuficiente".into()));
                 }
-                stock_antes - movimiento.cantidad
+                producto.stock_actual - dto.cantidad
             },
-            "AJUSTE" => movimiento.cantidad, // En ajuste, la cantidad es el nuevo stock total o una diferencia? Hagamos que sea el nuevo stock absoluto para simplificar.
-            _ => return Err(AppError::ValidationError("Tipo de movimiento inválido (ENTRADA, SALIDA, AJUSTE)".into())),
+            "AJUSTE" => dto.cantidad, // En ajuste, la cantidad es el nuevo total
+            _ => return Err(AppError::ValidationError("Tipo de movimiento inválido".into())),
         };
 
-        // 3. Actualizar stock del producto
-        sqlx::query("UPDATE productos SET stock_actual = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?")
-            .bind(stock_despues)
+        // 3. Actualizar producto
+        sqlx::query("UPDATE productos SET stock_actual = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?")
+            .bind(nuevo_stock)
             .bind(&producto.id)
+            .bind(tenant_id)
             .execute(&mut *tx)
             .await?;
 
-        // 4. Registrar movimiento con trazabilidad
-        let reg = MovimientoRepository::registrar_transaccional(
-            &mut tx, 
-            movimiento, 
-            stock_antes, 
-            stock_despues, 
-            usuario_id
+        // 4. Registrar movimiento
+        let movimiento = MovimientoRepository::registrar_transaccional(
+            &mut tx,
+            tenant_id,
+            dto,
+            producto.stock_actual,
+            nuevo_stock,
+            Some(usuario_id),
         ).await?;
 
         tx.commit().await?;
-
-        Ok(reg)
+        Ok(movimiento)
     }
 }

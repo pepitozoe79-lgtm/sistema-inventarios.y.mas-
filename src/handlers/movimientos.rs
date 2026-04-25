@@ -1,48 +1,24 @@
-use axum::{
-    extract::{State, Query},
-    Json, Extension
-};
+use axum::{extract::{State, Query}, Json, Extension};
 use sqlx::SqlitePool;
-use crate::models::inventario::{MovimientoInventario, NuevoMovimientoDto, FiltrosMovimiento};
-use crate::models::responses::{ApiResponse, ApiListResponse};
+use crate::models::inventario::{MovimientoInventario, NuevoMovimientoDto};
+use crate::models::responses::ApiListResponse;
 use crate::services::movimiento_service::MovimientoService;
-use crate::errors::{AppError, ErrorResponse};
+use crate::errors::AppError;
 use crate::auth::Claims;
-use crate::models::producto::ApiResponseProducto; // Para reusar si fuera necesario
 
-/// Listar historial de movimientos (Kardex)
-#[utoipa::path(
-    get,
-    path = "/api/v1/inventario/movimientos",
-    responses(
-        (status = 200, description = "Historial obtenido", body = ApiListResponseMovimiento),
-    ),
-    security(("bearer_auth" = []))
-)]
 pub async fn listar_movimientos(
     State(pool): State<SqlitePool>,
-    Query(_filtros): Query<FiltrosMovimiento>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<Json<ApiListResponse<MovimientoInventario>>, AppError> {
-    let movimientos = MovimientoService::listar_movimientos(&pool).await?;
+    let movimientos = MovimientoService::listar_movimientos(&pool, &claims.tenant_id).await?;
     Ok(Json(ApiListResponse::new(movimientos)))
 }
 
-/// Registrar un nuevo movimiento (Entrada/Salida/Ajuste)
-#[utoipa::path(
-    post,
-    path = "/api/v1/inventario/movimientos",
-    request_body = NuevoMovimientoDto,
-    responses(
-        (status = 201, description = "Movimiento registrado", body = ApiResponseMovimiento),
-        (status = 409, description = "Stock insuficiente", body = ErrorResponse),
-    ),
-    security(("bearer_auth" = []))
-)]
 pub async fn registrar(
     State(pool): State<SqlitePool>,
     Extension(claims): Extension<Claims>,
     Json(dto): Json<NuevoMovimientoDto>,
-) -> Result<Json<ApiResponse<MovimientoInventario>>, AppError> {
-    let reg = MovimientoService::registrar_movimiento(&pool, dto, Some(claims.sub)).await?;
-    Ok(Json(ApiResponse::new(reg)))
+) -> Result<Json<MovimientoInventario>, AppError> {
+    let movimiento = MovimientoService::registrar_movimiento(&pool, &claims.tenant_id, claims.sub, dto).await?;
+    Ok(Json(movimiento))
 }

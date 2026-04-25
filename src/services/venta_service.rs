@@ -9,12 +9,13 @@ use crate::errors::AppError;
 pub struct VentaService;
 
 impl VentaService {
-    pub async fn listar_ventas(pool: &SqlitePool) -> Result<Vec<Venta>, AppError> {
-        Ok(VentaRepository::listar(pool).await?)
+    pub async fn listar_ventas(pool: &SqlitePool, tenant_id: &str) -> Result<Vec<Venta>, AppError> {
+        Ok(VentaRepository::listar(pool, tenant_id).await?)
     }
 
     pub async fn crear_venta(
         pool: &SqlitePool,
+        tenant_id: &str,
         usuario_id: &str,
         dto: CrearVentaDto
     ) -> Result<VentaCompletaResponse, AppError> {
@@ -23,9 +24,9 @@ impl VentaService {
         let mut total_venta = 0.0;
         let mut items_preparados = Vec::new();
 
-        // 1. Validación de stock y cálculo de precios
         for linea in &dto.lineas {
-            let producto = ProductoRepository::obtener_por_id(pool, &linea.producto_id).await?
+            // Obtener producto validando tenant
+            let producto = ProductoRepository::obtener_por_id(pool, tenant_id, &linea.producto_id).await?
                 .ok_or_else(|| AppError::NotFound(format!("Producto {} no encontrado", linea.producto_id)))?;
 
             if producto.stock_actual < linea.cantidad {
@@ -34,44 +35,34 @@ impl VentaService {
 
             let subtotal = (linea.cantidad as f64) * producto.precio_unitario;
             total_venta += subtotal;
-            
             items_preparados.push((producto, linea.cantidad, subtotal));
         }
 
-        // 2. Crear cabezal de venta
-        let venta = VentaRepository::crear_transaccional(&mut tx, usuario_id, total_venta).await?;
-
+        // Crear venta con tenant_id
+        let venta = VentaRepository::crear_transaccional(&mut tx, tenant_id, usuario_id, total_venta).await?;
         let mut detalles = Vec::new();
 
-        // 3. Procesar cada item
         for (producto, cantidad, _subtotal) in items_preparados {
-            // A. Añadir detalle
-            let detalle = VentaRepository::añadir_detalle(
-                &mut tx, 
-                &venta.id, 
-                &producto.id, 
-                cantidad, 
-                producto.precio_unitario
-            ).await?;
+            let detalle = VentaRepository::añadir_detalle(&mut tx, tenant_id, &venta.id, &producto.id, cantidad, producto.precio_unitario).await?;
             detalles.push(detalle);
 
-            // B. Actualizar stock físico
             let nuevo_stock = producto.stock_actual - cantidad;
-            sqlx::query("UPDATE productos SET stock_actual = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?")
+            sqlx::query("UPDATE productos SET stock_actual = ? WHERE id = ? AND tenant_id = ?")
                 .bind(nuevo_stock)
                 .bind(&producto.id)
+                .bind(tenant_id)
                 .execute(&mut *tx)
                 .await?;
 
-            // C. Registrar en Kardex (Auditoría)
             MovimientoRepository::registrar_transaccional(
                 &mut tx,
+                tenant_id,
                 NuevoMovimientoDto {
                     producto_id: producto.id.clone(),
                     tipo: "SALIDA".into(),
                     cantidad,
-                    costo_unitario: None, // El costo se registra en la entrada
-                    motivo: Some(format!("Venta {}", venta.id.substring(0, 8))),
+                    costo_unitario: None,
+                    motivo: Some(format!("Venta {}", &venta.id[0..8])),
                 },
                 producto.stock_actual,
                 nuevo_stock,
@@ -80,7 +71,6 @@ impl VentaService {
         }
 
         tx.commit().await?;
-
         Ok(VentaCompletaResponse { venta, detalles })
     }
 }

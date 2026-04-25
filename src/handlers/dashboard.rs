@@ -1,22 +1,15 @@
-use axum::{extract::State, Json};
+use axum::{extract::State, Json, Extension};
 use sqlx::SqlitePool;
 use crate::models::dashboard::DashboardData;
 use crate::models::responses::ApiResponse;
 use crate::services::dashboard_service::DashboardService;
 use crate::errors::AppError;
+use crate::auth::Claims;
 
-/// Obtener datos consolidados para el dashboard
-#[utoipa::path(
-    get,
-    path = "/api/v1/dashboard",
-    responses(
-        (status = 200, description = "Datos del dashboard obtenidos", body = ApiResponseDashboard),
-    ),
-    security(("bearer_auth" = []))
-)]
 pub async fn obtener_dashboard(
     State(pool): State<SqlitePool>,
+    Extension(claims): Extension<Claims>,
 ) -> Result<Json<ApiResponse<DashboardData>>, AppError> {
-    let data = DashboardService::obtener_datos(&pool).await?;
+    let data = DashboardService::obtener_datos(&pool, &claims.tenant_id).await?;
     Ok(Json(ApiResponse::new(data)))
 }
