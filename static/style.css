@@ -272,3 +272,35 @@ tr:hover { background: #f8fafc; }
 }
 .growth-up { background: #dcfce7; color: #166534; }
 .growth-down { background: #fee2e2; color: #991b1b; }
+
+/* --- Predictive Styles --- */
+.risk-card {
+    padding: 1.2rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 6px solid #ccc;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.risk-high { border-left-color: #ef4444; background: #fff1f2; }
+.risk-medium { border-left-color: #f59e0b; background: #fffbeb; }
+.risk-stable { border-left-color: #10b981; background: #f0fdf4; }
+
+.countdown-timer {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.forecast-header {
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    color: white;
+    padding: 2.5rem;
+    border-radius: 16px;
+    text-align: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+}

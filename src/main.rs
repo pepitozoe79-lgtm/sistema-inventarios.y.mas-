@@ -35,6 +35,7 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::gastos::crear,
         handlers::gastos::eliminar,
         handlers::analytics::obtener_analytics,
+        handlers::predictivo::obtener_predicciones,
     ),
     components(
         schemas(
@@ -57,10 +58,12 @@ use utoipa_swagger_ui::SwaggerUi;
             models::gasto::CrearGastoDto,
             models::gasto::ApiResponseGasto,
             models::gasto::ApiListResponseGasto,
-            models::analytics::PuntoSerieTemporal,
-            models::analytics::ComparativaMensual,
             models::analytics::AnalyticsData,
             models::analytics::ApiResponseAnalytics,
+            models::predictivo::PrediccionStock,
+            models::predictivo::ProyeccionVentas,
+            models::predictivo::PredictiveData,
+            models::predictivo::ApiResponsePredictive,
             models::dashboard::DashboardStats,
             models::dashboard::TopProducto,
             models::dashboard::ActividadReciente,
@@ -71,8 +74,8 @@ use utoipa_swagger_ui::SwaggerUi;
         )
     ),
     tags(
-        (name = "Analytics", description = "Business Intelligence e Inteligencia de Negocio"),
-        (name = "Finanzas", description = "Control de gastos y rentabilidad"),
+        (name = "Predictivo", description = "Inteligencia Predictiva y Forecast"),
+        (name = "Analytics", description = "BI e Inteligencia de Negocio"),
         (name = "Dashboard", description = "Dashboard en tiempo real")
     ),
     modifiers(&SecurityAddon)
@@ -114,6 +117,7 @@ async fn main() {
     let rutas_protegidas = Router::new()
         .route("/dashboard", get(handlers::dashboard::obtener_dashboard))
         .route("/analytics", get(handlers::analytics::obtener_analytics))
+        .route("/predictivo", get(handlers::predictivo::obtener_predicciones))
         .route("/productos", get(handlers::productos::listar))
         .route("/productos/:id", get(handlers::productos::obtener))
         // Rutas que requieren ser Admin
