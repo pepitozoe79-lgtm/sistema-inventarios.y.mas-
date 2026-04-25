@@ -123,6 +123,45 @@ th, td {
     border-bottom: 1px solid var(--border);
 }
 
+/* --- POS Styles --- */
+.pos-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 300px;
+    gap: 1rem;
+    height: calc(100vh - 150px);
+}
+
+.pos-column {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.product-item-pos {
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.product-item-pos:hover { background: #f9f9f9; }
+
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem;
+    border-bottom: 1px solid #eee;
+}
+
+.checkout-panel {
+    background: var(--primary);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
 th {
     background: #f1f5f9;
     font-weight: 700;
