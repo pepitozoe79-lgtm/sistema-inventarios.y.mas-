@@ -65,6 +65,21 @@ Control total sobre la autonomía y la salud del sistema.
 
 ---
 
+## 📋 Requisitos Previos
+
+Antes de instalar, asegúrate de tener lo siguiente en tu sistema:
+
+### Windows
+- **Rust**: [rustup.rs](https://rustup.rs/)
+- **C++ Build Tools**: Obligatorio para compilar en Windows. [Descargar aquí](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (Marcar "Desarrollo para el escritorio con C++").
+- Si tienes problemas, consulta nuestra [Guía de Solución de Problemas](TROUBLESHOOTING.md).
+
+### Linux
+- **Rust**: [rustup.rs](https://rustup.rs/)
+- **Build Essentials**: `sudo apt install build-essential` (o equivalente).
+
+---
+
 ## 🚀 Instalación Rápida (One-liner)
 
 ### Linux / macOS
