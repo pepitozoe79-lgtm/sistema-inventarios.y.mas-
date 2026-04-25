@@ -6,3 +6,4 @@ pub mod usuarios;
 pub mod movimientos;
 pub mod reportes;
 pub mod dashboard;
+pub mod facturas;

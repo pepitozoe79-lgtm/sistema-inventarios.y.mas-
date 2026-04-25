@@ -59,10 +59,9 @@ use utoipa_swagger_ui::SwaggerUi;
         )
     ),
     tags(
-        (name = "Dashboard", description = "Inteligencia de negocio y métricas"),
-        (name = "Productos", description = "Gestión de productos"),
-        (name = "Inventario", description = "Movimientos de bodega (Kardex)"),
-        (name = "Ventas", description = "Procesamiento de ventas")
+        (name = "Facturación", description = "Generación de facturas PDF"),
+        (name = "Dashboard", description = "Inteligencia de negocio"),
+        (name = "Productos", description = "Gestión de productos")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -116,6 +115,7 @@ async fn main() {
         .route("/inventario/movimientos", post(handlers::movimientos::registrar))
         .route("/ventas", post(handlers::ventas::crear_venta))
         .route("/ventas", get(handlers::ventas::listar_ventas))
+        .route("/ventas/:id/factura", get(handlers::facturas::generar_factura))
         .route("/reportes/inventario", get(handlers::reportes::reporte_productos))
         .route("/reportes/ventas", get(handlers::reportes::reporte_ventas));
 
