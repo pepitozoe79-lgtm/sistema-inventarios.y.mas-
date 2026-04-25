@@ -1,357 +1,458 @@
 let token = localStorage.getItem('token');
-let usuarioActual = JSON.parse(localStorage.getItem('usuario')) || null;
+let usuario = JSON.parse(localStorage.getItem('usuario'));
 
-async function api(url, method = 'GET', body = null) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
-    if (res.status === 401) { cerrarSesion(); throw new Error('Sesión expirada'); }
-    if (!res.ok) {
-        const err = await res.text();
-        alert(`Error: ${err}`);
-        throw new Error(err);
+// --- Utilidades ---
+const API_BASE = '/api/v1';
+
+async fn apiFetch(endpoint, options = {}) {
+    if (!options.headers) options.headers = {};
+    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    
+    const response = await fetch(`${API_BASE}${endpoint}`, options);
+    
+    if (response.status === 401) {
+        cerrarSesion();
+        throw new Error("Sesión expirada");
     }
-    return res.json();
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        // Manejo de errores estandarizado (v1)
+        const errorMsg = result.error || "Error desconocido";
+        const errorCode = result.code || "UNKNOWN_ERROR";
+        
+        switch (errorCode) {
+            case "CONFLICT":
+                alert(`⚠️ Conflicto: ${errorMsg}`);
+                break;
+            case "VALIDATION_ERROR":
+                alert(`❌ Datos inválidos: ${errorMsg}`);
+                break;
+            case "NOT_FOUND":
+                alert(`🔍 No encontrado: ${errorMsg}`);
+                break;
+            case "FORBIDDEN":
+                alert("🚫 No tienes permisos para realizar esta acción.");
+                break;
+            default:
+                alert(`Error (${errorCode}): ${errorMsg}`);
+        }
+        throw { message: errorMsg, code: errorCode };
+    }
+
+    return result; // Devuelve { data: ..., meta: ... } o { data: ... }
 }
 
-// ---------- Autenticación ----------
-async function login() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    if (!username || !password) return alert('Completa los campos');
-    const data = await api('/api/login', 'POST', { username, password });
-    token = data.token;
-    usuarioActual = data.usuario;
-    localStorage.setItem('token', token);
-    localStorage.setItem('usuario', JSON.stringify(usuarioActual));
-    mostrarApp();
+// --- Autenticación ---
+async function login(e) {
+    e.preventDefault();
+    const username = e.target.username.value;
+    const password = e.target.password.value;
+
+    try {
+        const result = await apiFetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        token = result.data.token;
+        usuario = result.data.usuario;
+        localStorage.setItem('token', token);
+        localStorage.setItem('usuario', JSON.stringify(usuario));
+        mostrarDashboard();
+    } catch (e) {
+        console.error("Login failed", e);
+    }
 }
 
-async function registro() {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    if (!username || !password) return alert('Completa los campos');
-    const data = await api('/api/registro', 'POST', { username, password });
-    token = data.token;
-    usuarioActual = data.usuario;
-    localStorage.setItem('token', token);
-    localStorage.setItem('usuario', JSON.stringify(usuarioActual));
-    mostrarApp();
+async function registro(e) {
+    e.preventDefault();
+    const username = e.target.username.value;
+    const password = e.target.password.value;
+
+    try {
+        await apiFetch('/registro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        alert("Registro exitoso. Ahora puedes iniciar sesión.");
+        mostrarLogin();
+    } catch (e) {
+        console.error("Registro failed", e);
+    }
 }
 
 function cerrarSesion() {
     token = null;
-    usuarioActual = null;
+    usuario = null;
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
-    document.getElementById('login-section').style.display = 'block';
-    document.getElementById('main-section').style.display = 'none';
+    mostrarLogin();
 }
 
-function mostrarApp() {
-    document.getElementById('login-section').style.display = 'none';
-    document.getElementById('main-section').style.display = 'block';
-    
-    // Mostrar/ocultar menú de usuarios según rol
-    const btnUsuarios = document.getElementById('btn-usuarios');
-    if (usuarioActual && usuarioActual.rol === 'admin') {
-        btnUsuarios.style.display = 'inline-block';
-    } else {
-        btnUsuarios.style.display = 'none';
-    }
-    
-    mostrarSeccion('productos');
-}
+// --- UI Management ---
+const app = document.getElementById('app');
 
-// ---------- Navegación ----------
-function mostrarSeccion(seccion) {
-    if (seccion === 'productos') cargarProductos();
-    else if (seccion === 'ventas') cargarVentas();
-    else if (seccion === 'movimientos') cargarMovimientos();
-    else if (seccion === 'usuarios') cargarUsuarios();
-}
-
-// ---------- Productos ----------
-async function cargarProductos() {
-    const productos = await api('/api/productos');
-    let html = `
-        <div class="header-actions">
-            <h2>📦 Productos</h2>
-            <div class="botones-header">
-                <label style="font-size: 0.8rem; color: var(--secondary); margin-right: 1rem;">
-                    <input type="checkbox" id="check-stock-bajo" style="width: auto;"> Solo stock bajo (≤5)
-                </label>
-                <button class="btn-primary" onclick="mostrarFormProducto()" style="width: auto;">+ Nuevo producto</button>
-                <button class="btn-secondary" onclick="descargarReporteInventario()" style="width: auto;">📄 Exportar PDF</button>
+function mostrarLogin() {
+    app.innerHTML = `
+        <div class="login-container">
+            <div class="card">
+                <h1>📦 Inventario Pro v1</h1>
+                <form onsubmit="login(event)">
+                    <input type="text" name="username" placeholder="Usuario" required>
+                    <input type="password" name="password" placeholder="Contraseña" required>
+                    <button type="submit" class="btn-primary">Entrar</button>
+                </form>
+                <p>¿No tienes cuenta? <a href="#" onclick="mostrarRegistro()">Regístrate</a></p>
             </div>
         </div>
-        <div id="form-producto" class="card" style="display:none; margin-bottom: 2rem;"></div>
-        <table>
-            <thead>
-                <tr><th>Código</th><th>Nombre</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr>
-            </thead>
-            <tbody>
     `;
-    productos.forEach(p => {
-        html += `<tr>
-            <td>${p.codigo}</td>
-            <td>${p.nombre}</td>
-            <td>$${p.precio_unitario.toFixed(2)}</td>
-            <td>${p.stock_actual}</td>
-            <td class="actions-cell">
-                <button class="btn-secondary" onclick="editarProducto('${p.id}')">Editar</button>
-                <button class="btn-danger" onclick="eliminarProducto('${p.id}')">Eliminar</button>
-            </td>
-        </tr>`;
-    });
-    html += '</tbody></table>';
-    document.getElementById('contenido').innerHTML = html;
 }
 
-function mostrarFormProducto(producto = null) {
-    const formDiv = document.getElementById('form-producto');
-    const esEdicion = producto !== null;
-    formDiv.style.display = 'block';
-    formDiv.innerHTML = `
-        <h3>${esEdicion ? '✏️ Editar producto' : '✨ Nuevo producto'}</h3>
-        <div class="form-group"><input type="text" id="prod-codigo" placeholder="Código" value="${esEdicion ? producto.codigo : ''}"></div>
-        <div class="form-group"><input type="text" id="prod-nombre" placeholder="Nombre" value="${esEdicion ? producto.nombre : ''}"></div>
-        <div class="form-group"><input type="text" id="prod-descripcion" placeholder="Descripción" value="${esEdicion ? (producto.descripcion || '') : ''}"></div>
-        <div class="form-group"><input type="number" id="prod-precio" placeholder="Precio" step="0.01" value="${esEdicion ? producto.precio_unitario : ''}"></div>
-        <div class="actions-cell">
-            <button class="btn-primary" onclick="${esEdicion ? `guardarEdicionProducto('${producto.id}')` : 'crearProducto()'}">Guardar</button>
-            <button class="btn-secondary" onclick="document.getElementById('form-producto').style.display='none'">Cancelar</button>
+function mostrarRegistro() {
+    app.innerHTML = `
+        <div class="login-container">
+            <div class="card">
+                <h1>Crear Cuenta</h1>
+                <form onsubmit="registro(event)">
+                    <input type="text" name="username" placeholder="Usuario" required>
+                    <input type="password" name="password" placeholder="Contraseña" required>
+                    <button type="submit" class="btn-primary">Registrar</button>
+                </form>
+                <p><a href="#" onclick="mostrarLogin()">Volver al login</a></p>
+            </div>
         </div>
     `;
 }
 
-async function crearProducto() {
-    const codigo = document.getElementById('prod-codigo').value.trim();
-    const nombre = document.getElementById('prod-nombre').value.trim();
-    const descripcion = document.getElementById('prod-descripcion').value.trim();
-    const precio = parseFloat(document.getElementById('prod-precio').value);
-    if (!codigo || !nombre || isNaN(precio)) return alert('Campos obligatorios');
-    await api('/api/productos', 'POST', { codigo, nombre, descripcion: descripcion || null, precio_unitario: precio });
+function mostrarDashboard() {
+    app.innerHTML = `
+        <div class="dashboard">
+            <nav class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Inventario Pro</h3>
+                    <p>${usuario.username} (${usuario.rol})</p>
+                </div>
+                <ul>
+                    <li onclick="cargarProductos()">📦 Productos</li>
+                    <li onclick="cargarMovimientos()">🚛 Bodega</li>
+                    <li onclick="cargarVentas()">💰 Ventas</li>
+                    ${usuario.rol === 'admin' ? '<li onclick="cargarUsuarios()">👥 Usuarios</li>' : ''}
+                    <li onclick="cerrarSesion()" class="logout">🚪 Salir</li>
+                </ul>
+            </nav>
+            <main class="content" id="main-content">
+                <h1>Bienvenido al Sistema</h1>
+                <p>Selecciona una opción del menú para comenzar.</p>
+            </main>
+        </div>
+    `;
     cargarProductos();
 }
 
-async function editarProducto(id) {
-    const productos = await api('/api/productos');
-    const prod = productos.find(p => p.id === id);
-    if (prod) mostrarFormProducto(prod);
+// --- Módulos ---
+
+// 📦 PRODUCTOS
+async function cargarProductos() {
+    const main = document.getElementById('main-content');
+    main.innerHTML = '<h2>Cargando productos...</h2>';
+    
+    try {
+        const result = await apiFetch('/productos');
+        const productos = result.data;
+        const total = result.meta?.total || 0;
+
+        let html = `
+            <div class="header-actions">
+                <h2>📦 Productos (${total})</h2>
+                <div class="botones-header">
+                    <label style="font-size: 0.8rem; color: var(--secondary); margin-right: 1rem;">
+                        <input type="checkbox" id="check-stock-bajo" style="width: auto;"> Solo stock bajo (≤5)
+                    </label>
+                    <button class="btn-primary" onclick="mostrarFormProducto()">+ Nuevo producto</button>
+                    <button class="btn-secondary" onclick="descargarReporteInventario()">📄 Exportar PDF</button>
+                </div>
+            </div>
+            <div id="form-producto" class="card" style="display:none; margin-bottom: 2rem;">
+                <h3>Nuevo Producto</h3>
+                <form onsubmit="crearProducto(event)">
+                    <input type="text" name="codigo" placeholder="Código" required>
+                    <input type="text" name="nombre" placeholder="Nombre" required>
+                    <input type="text" name="descripcion" placeholder="Descripción">
+                    <input type="number" step="0.01" name="precio" placeholder="Precio Unitario" required>
+                    <button type="submit" class="btn-primary">Guardar</button>
+                </form>
+            </div>
+            <table class="card">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${productos.map(p => `
+                        <tr>
+                            <td>${p.codigo}</td>
+                            <td>${p.nombre}</td>
+                            <td>$${p.precio_unitario.toFixed(2)}</td>
+                            <td><span class="badge ${p.stock_actual <= 5 ? 'badge-danger' : 'badge-success'}">${p.stock_actual}</span></td>
+                            <td>
+                                <button class="btn-small" onclick="eliminarProducto('${p.id}')">🗑️</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        main.innerHTML = html;
+    } catch (e) {
+        main.innerHTML = `<h2>Error al cargar productos</h2><p>${e.message}</p>`;
+    }
 }
 
-async function guardarEdicionProducto(id) {
-    const codigo = document.getElementById('prod-codigo').value.trim();
-    const nombre = document.getElementById('prod-nombre').value.trim();
-    const descripcion = document.getElementById('prod-descripcion').value.trim();
-    const precio = parseFloat(document.getElementById('prod-precio').value);
-    const body = {};
-    if (codigo) body.codigo = codigo;
-    if (nombre) body.nombre = nombre;
-    if (descripcion) body.descripcion = descripcion;
-    if (!isNaN(precio)) body.precio_unitario = precio;
-    await api(`/api/productos/${id}`, 'PUT', body);
-    cargarProductos();
+function mostrarFormProducto() {
+    const form = document.getElementById('form-producto');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function crearProducto(e) {
+    e.preventDefault();
+    const dto = {
+        codigo: e.target.codigo.value,
+        nombre: e.target.nombre.value,
+        descripcion: e.target.descripcion.value,
+        precio_unitario: parseFloat(e.target.precio.value)
+    };
+
+    try {
+        await apiFetch('/productos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dto)
+        });
+        cargarProductos();
+    } catch (e) {
+        console.error("Error al crear producto", e);
+    }
 }
 
 async function eliminarProducto(id) {
-    if (!confirm('¿Eliminar producto?')) return;
-    await api(`/api/productos/${id}`, 'DELETE');
-    cargarProductos();
-}
-
-// ---------- Ventas ----------
-async function cargarVentas() {
-    let html = `
-        <div class="header-actions">
-            <h2>💰 Ventas</h2>
-            <div class="botones-header" style="display: flex; gap: 0.5rem; align-items: center;">
-                <input type="month" id="reporte-mes" value="${new Date().toISOString().slice(0, 7)}" style="width: auto; margin: 0;">
-                <button class="btn-secondary" onclick="descargarReporteVentas()" style="width: auto; margin: 0;">📊 Reporte Mensual PDF</button>
-                <button class="btn-primary" onclick="mostrarFormVenta()" style="width: auto; margin: 0;">+ Nueva venta</button>
-            </div>
-        </div>
-        <div id="form-venta" class="card" style="display:none; margin-bottom: 2rem;">
-            <h3>Nueva venta</h3>
-            <div id="lineas-venta"></div>
-            <button class="btn-secondary" onclick="agregarLineaVenta()" style="width: auto; margin-bottom: 1rem;">+ Agregar producto</button>
-            <div style="margin-bottom: 1.5rem; font-size: 1.25rem;">
-                <strong>Total: $<span id="total-venta">0.00</span></strong>
-            </div>
-            <div class="actions-cell">
-                <button class="btn-primary" onclick="realizarVenta()">Finalizar venta</button>
-                <button class="btn-secondary" onclick="document.getElementById('form-venta').style.display='none'">Cancelar</button>
-            </div>
-        </div>
-        <table>
-            <thead><tr><th>ID</th><th>Total</th><th>Fecha</th><th>Detalle</th></tr></thead>
-            <tbody id="tabla-ventas-body"></tbody>
-        </table>
-    `;
-    document.getElementById('contenido').innerHTML = html;
-
-    const ventas = await api('/api/ventas');
-    const tbody = document.getElementById('tabla-ventas-body');
-    ventas.forEach(v => {
-        const fila = tbody.insertRow();
-        fila.innerHTML = `<td>${v.id.substring(0,8)}...</td><td>$${v.total.toFixed(2)}</td><td>${v.fecha}</td><td><button class="btn-secondary" onclick="alert('Detalle ID: ${v.id}')">Ver</button></td>`;
-    });
-}
-
-let lineasVenta = []; 
-
-async function mostrarFormVenta() {
-    document.getElementById('form-venta').style.display = 'block';
-    lineasVenta = [];
-    agregarLineaVenta();
-}
-
-async function agregarLineaVenta() {
-    lineasVenta.push({ producto_id: '', cantidad: 1 });
-    actualizarLineasVenta();
-}
-
-async function actualizarLineasVenta() {
-    const productos = await api('/api/productos');
-    const lineasDiv = document.getElementById('lineas-venta');
-    lineasDiv.innerHTML = lineasVenta.map((l, i) => `
-        <div class="form-group" style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
-            <select style="flex: 2;" onchange="lineasVenta[${i}].producto_id = this.value; calcularTotalVenta()">
-                <option value="">Seleccione producto</option>
-                ${productos.map(p => `<option value="${p.id}" ${p.id === l.producto_id ? 'selected' : ''}>${p.nombre} ($${p.precio_unitario} - Stock: ${p.stock_actual})</option>`).join('')}
-            </select>
-            <input style="flex: 1;" type="number" min="1" value="${l.cantidad}" onchange="lineasVenta[${i}].cantidad = parseInt(this.value); calcularTotalVenta()">
-            <button class="btn-danger" style="width: auto;" onclick="lineasVenta.splice(${i},1); actualizarLineasVenta()">🗑️</button>
-        </div>
-    `).join('');
-    calcularTotalVenta();
-}
-
-async function calcularTotalVenta() {
-    const productos = await api('/api/productos');
-    const prodMap = {};
-    productos.forEach(p => prodMap[p.id] = p);
-    let total = 0;
-    lineasVenta.forEach(l => {
-        if (l.producto_id && prodMap[l.producto_id]) {
-            total += prodMap[l.producto_id].precio_unitario * l.cantidad;
-        }
-    });
-    document.getElementById('total-venta').textContent = total.toFixed(2);
-}
-
-async function realizarVenta() {
-    const lineas = lineasVenta.filter(l => l.producto_id && l.cantidad > 0);
-    if (lineas.length === 0) return alert('Agrega productos válidos');
+    if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
     try {
-        await api('/api/ventas', 'POST', { lineas });
-        alert('Venta registrada con éxito');
-        document.getElementById('form-venta').style.display = 'none';
-        cargarVentas();
+        await apiFetch(`/productos/${id}`, { method: 'DELETE' });
+        cargarProductos();
     } catch (e) {
-        console.error(e);
+        console.error("Error al eliminar", e);
     }
 }
 
-// ---------- Movimientos ----------
+// 🚛 MOVIMIENTOS (BODEGA)
 async function cargarMovimientos() {
-    const productos = await api('/api/productos');
-    let html = `
-        <h2>📊 Historial de movimientos</h2>
-        <div class="card" style="margin-bottom: 2rem;">
-            <div class="form-group" style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                <select id="filtro-producto" style="flex: 1; min-width: 200px;">
-                    <option value="">Todos los productos</option>
-                    ${productos.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('')}
-                </select>
-                <select id="filtro-tipo" style="flex: 1; min-width: 150px;">
-                    <option value="">Todos los tipos</option>
-                    <option value="entrada">🟢 Entrada</option>
-                    <option value="salida">🔴 Salida</option>
-                </select>
-                <input type="date" id="filtro-desde" style="flex: 1; min-width: 150px;">
-                <input type="date" id="filtro-hasta" style="flex: 1; min-width: 150px;">
-                <button class="btn-primary" onclick="aplicarFiltrosMovimientos()" style="width: auto;">Filtrar</button>
+    const main = document.getElementById('main-content');
+    try {
+        const result = await apiFetch('/inventario/movimientos');
+        const movimientos = result.data;
+
+        main.innerHTML = `
+            <div class="header-actions">
+                <h2>🚛 Movimientos de Bodega</h2>
+                <button class="btn-primary" onclick="mostrarFormMovimiento()">+ Registrar Movimiento</button>
             </div>
-        </div>
-        <div id="movimientos-tabla-container"></div>
-    `;
-    document.getElementById('contenido').innerHTML = html;
-    aplicarFiltrosMovimientos();
+            <div id="form-movimiento" class="card" style="display:none; margin-bottom: 2rem;">
+                <h3>Registrar Entrada/Salida</h3>
+                <form onsubmit="registrarMovimiento(event)">
+                    <input type="text" name="producto_id" placeholder="ID del Producto" required>
+                    <select name="tipo">
+                        <option value="entrada">Entrada (+)</option>
+                        <option value="salida">Salida (-)</option>
+                    </select>
+                    <input type="number" name="cantidad" placeholder="Cantidad" required>
+                    <input type="text" name="motivo" placeholder="Motivo (ej: Compra, Ajuste)">
+                    <button type="submit" class="btn-primary">Registrar</button>
+                </form>
+            </div>
+            <table class="card">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Producto</th>
+                        <th>Tipo</th>
+                        <th>Cant.</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${movimientos.map(m => `
+                        <tr>
+                            <td>${m.fecha}</td>
+                            <td>${m.producto_id}</td>
+                            <td><span class="badge ${m.tipo === 'entrada' ? 'badge-success' : 'badge-danger'}">${m.tipo.toUpperCase()}</span></td>
+                            <td>${m.cantidad}</td>
+                            <td>${m.motivo || '-'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        main.innerHTML = `<h2>Error al cargar bodega</h2>`;
+    }
 }
 
-async function aplicarFiltrosMovimientos() {
-    const producto_id = document.getElementById('filtro-producto')?.value || '';
-    const tipo = document.getElementById('filtro-tipo')?.value || '';
-    const desde = document.getElementById('filtro-desde')?.value || '';
-    const hasta = document.getElementById('filtro-hasta')?.value || '';
+function mostrarFormMovimiento() {
+    const form = document.getElementById('form-movimiento');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
 
-    const params = new URLSearchParams();
-    if (producto_id) params.append('producto_id', producto_id);
-    if (tipo) params.append('tipo', tipo);
-    if (desde) params.append('fecha_desde', desde);
-    if (hasta) params.append('fecha_hasta', hasta);
+async function registrarMovimiento(e) {
+    e.preventDefault();
+    const endpoint = e.target.tipo.value === 'entrada' ? '/inventario/entrada' : '/inventario/salida';
+    const body = {
+        producto_id: e.target.producto_id.value,
+        cantidad: parseInt(e.target.cantidad.value),
+        motivo: e.target.motivo.value
+    };
 
-    const movimientos = await api('/api/inventario/movimientos?' + params.toString());
-    const productos = await api('/api/productos');
-    const prodMap = {};
-    productos.forEach(p => prodMap[p.id] = p.nombre);
+    try {
+        await apiFetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        cargarMovimientos();
+    } catch (e) {
+        console.error("Error en movimiento", e);
+    }
+}
 
-    let tablaHtml = `
-        <table>
-            <thead><tr><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th><th>Fecha</th></tr></thead>
-            <tbody>
-    `;
-    movimientos.forEach(m => {
-        tablaHtml += `<tr>
-            <td>${prodMap[m.producto_id] || m.producto_id}</td>
-            <td>${m.tipo === 'entrada' ? '<span style="color:var(--success)">🟢 Entrada</span>' : '<span style="color:var(--danger)">🔴 Salida</span>'}</td>
-            <td>${m.cantidad}</td>
-            <td>${m.motivo || '-'}</td>
-            <td>${m.fecha}</td>
-        </tr>`;
+// 💰 VENTAS
+async function cargarVentas() {
+    const main = document.getElementById('main-content');
+    try {
+        const result = await apiFetch('/ventas');
+        const ventas = result.data;
+
+        main.innerHTML = `
+            <div class="header-actions">
+                <h2>💰 Ventas</h2>
+                <div class="botones-header" style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="month" id="reporte-mes" value="${new Date().toISOString().slice(0, 7)}" style="width: auto; margin: 0;">
+                    <button class="btn-secondary" onclick="descargarReporteVentas()" style="width: auto; margin: 0;">📊 Reporte Mensual PDF</button>
+                    <button class="btn-primary" onclick="mostrarFormVenta()">+ Nueva venta</button>
+                </div>
+            </div>
+            <div id="form-venta" class="card" style="display:none; margin-bottom: 2rem;">
+                <h3>Nueva venta</h3>
+                <form onsubmit="crearVenta(event)">
+                    <p>Formato: ID_PRODUCTO:CANTIDAD (uno por línea)</p>
+                    <textarea name="items" placeholder="ej: uuid-producto:2" required></textarea>
+                    <button type="submit" class="btn-primary">Finalizar Venta</button>
+                </form>
+            </div>
+            <table class="card">
+                <thead>
+                    <tr>
+                        <th>ID Venta</th>
+                        <th>Fecha</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${ventas.map(v => `
+                        <tr>
+                            <td>${v.id.substring(0,8)}...</td>
+                            <td>${v.fecha}</td>
+                            <td>$${v.total.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        main.innerHTML = `<h2>Error al cargar ventas</h2>`;
+    }
+}
+
+function mostrarFormVenta() {
+    const form = document.getElementById('form-venta');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function crearVenta(e) {
+    e.preventDefault();
+    const lines = e.target.items.value.trim().split('\n');
+    const lineas = lines.map(l => {
+        const [id, cant] = l.split(':');
+        return { producto_id: id.trim(), cantidad: parseInt(cant.trim()) };
     });
-    tablaHtml += '</tbody></table>';
-    document.getElementById('movimientos-tabla-container').innerHTML = tablaHtml;
+
+    try {
+        await apiFetch('/ventas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lineas })
+        });
+        cargarVentas();
+    } catch (e) {
+        console.error("Error al crear venta", e);
+    }
 }
 
-// ---------- Usuarios (Admin) ----------
+// 👥 USUARIOS (Solo Admin)
 async function cargarUsuarios() {
-    const usuarios = await api('/api/usuarios');
-    let html = `
-        <h2>👥 Gestión de Usuarios</h2>
-        <table>
-            <thead><tr><th>ID</th><th>Usuario</th><th>Rol</th><th>Acciones</th></tr></thead>
-            <tbody>
-    `;
-    usuarios.forEach(u => {
-        html += `<tr>
-            <td>${u.id.substring(0,8)}...</td>
-            <td>${u.username}</td>
-            <td><strong>${u.rol.toUpperCase()}</strong></td>
-            <td class="actions-cell">
-                <select onchange="cambiarRol('${u.id}', this.value)">
-                    <option value="usuario" ${u.rol === 'usuario' ? 'selected' : ''}>Usuario</option>
-                    <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Admin</option>
-                </select>
-            </td>
-        </tr>`;
-    });
-    html += '</tbody></table>';
-    document.getElementById('contenido').innerHTML = html;
+    const main = document.getElementById('main-content');
+    try {
+        const result = await apiFetch('/usuarios');
+        const usuariosList = result.data;
+
+        main.innerHTML = `
+            <h2>👥 Gestión de Usuarios</h2>
+            <table class="card">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Rol Actual</th>
+                        <th>Cambiar Rol</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${usuariosList.map(u => `
+                        <tr>
+                            <td>${u.username}</td>
+                            <td><span class="badge">${u.rol}</span></td>
+                            <td>
+                                <select onchange="actualizarRol('${u.id}', this.value)">
+                                    <option value="usuario" ${u.rol === 'usuario' ? 'selected' : ''}>Usuario</option>
+                                    <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Admin</option>
+                                </select>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        main.innerHTML = `<h2>Error al cargar usuarios</h2>`;
+    }
 }
 
-async function cambiarRol(userId, nuevoRol) {
-    if (!confirm(`¿Cambiar rol a ${nuevoRol}?`)) return cargarUsuarios();
-    await api(`/api/usuarios/${userId}/rol`, 'PUT', { rol: nuevoRol });
-    alert('Rol actualizado');
-    if (userId === usuarioActual.id) {
-        usuarioActual.rol = nuevoRol;
-        localStorage.setItem('usuario', JSON.stringify(usuarioActual));
-        mostrarApp();
-    } else {
-        cargarUsuarios();
+async function actualizarRol(id, nuevoRol) {
+    try {
+        await apiFetch(`/usuarios/${id}/rol`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rol: nuevoRol })
+        });
+        alert("Rol actualizado correctamente");
+    } catch (e) {
+        console.error("Error al actualizar rol", e);
     }
 }
 
@@ -361,7 +462,7 @@ async function descargarReporteInventario() {
     const urlParams = soloStockBajo ? '?solo_stock_bajo=true&stock_minimo=5' : '';
     
     try {
-        const response = await fetch('/api/reportes/inventario' + urlParams, {
+        const response = await fetch(`${API_BASE}/reportes/inventario${urlParams}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!response.ok) throw new Error(await response.text());
@@ -385,7 +486,7 @@ async function descargarReporteVentas() {
     const [anio, mes] = inputMes.split('-');
     
     try {
-        const response = await fetch(`/api/reportes/ventas?anio=${anio}&mes=${mes}`, {
+        const response = await fetch(`${API_BASE}/reportes/ventas?anio=${anio}&mes=${mes}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!response.ok) throw new Error(await response.text());
@@ -403,6 +504,9 @@ async function descargarReporteVentas() {
     }
 }
 
-// Iniciar app
-if (token) mostrarApp();
-else cerrarSesion();
+// Inicialización
+if (token) {
+    mostrarDashboard();
+} else {
+    mostrarLogin();
+}
