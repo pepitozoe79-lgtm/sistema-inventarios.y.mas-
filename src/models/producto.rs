@@ -34,3 +34,14 @@ pub struct FiltrosProducto {
     pub solo_stock_bajo: Option<bool>,
     pub stock_minimo: Option<i64>,
 }
+
+#[derive(Serialize, ToSchema)]
+pub struct ApiResponseProducto {
+    pub data: Producto,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct ApiListResponseProducto {
+    pub data: Vec<Producto>,
+    pub meta: crate::models::responses::Meta,
+}

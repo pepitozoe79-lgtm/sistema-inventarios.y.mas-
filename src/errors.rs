@@ -3,8 +3,15 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde_json::json;
+use serde::Serialize;
+use utoipa::ToSchema;
 use thiserror::Error;
+
+#[derive(Serialize, ToSchema)]
+pub struct ErrorResponse {
+    pub error: String,
+    pub code: String,
+}
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -17,8 +24,8 @@ pub enum AppError {
     #[error("Conflicto: {0}")]
     Conflict(String),
 
-    #[error("Error interno del servidor")]
-    Internal(#[from] sqlx::Error),
+    #[error("Error de base de datos")]
+    Database(#[from] sqlx::Error),
 
     #[error("No autorizado")]
     Unauthorized,
@@ -27,26 +34,34 @@ pub enum AppError {
     Forbidden,
 }
 
-impl IntoResponse for Response {
-    fn into_response(self) -> Response {
-        self
+impl AppError {
+    fn get_code(&self) -> &str {
+        match self {
+            AppError::NotFound(_) => "NOT_FOUND",
+            AppError::ValidationError(_) => "VALIDATION_ERROR",
+            AppError::Conflict(_) => "CONFLICT",
+            AppError::Database(_) => "DATABASE_ERROR",
+            AppError::Unauthorized => "UNAUTHORIZED",
+            AppError::Forbidden => "FORBIDDEN",
+        }
     }
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
-            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
-            AppError::ValidationError(msg) => (StatusCode::BAD_REQUEST, msg),
-            AppError::Conflict(msg) => (StatusCode::CONFLICT, msg),
-            AppError::Internal(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
-            AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "No autorizado".into()),
-            AppError::Forbidden => (StatusCode::FORBIDDEN, "Acceso prohibido".into()),
+        let status = match self {
+            AppError::NotFound(_) => StatusCode::NOT_FOUND,
+            AppError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Unauthorized => StatusCode::UNAUTHORIZED,
+            AppError::Forbidden => StatusCode::FORBIDDEN,
         };
 
-        let body = Json(json!({
-            "error": message,
-        }));
+        let body = Json(ErrorResponse {
+            error: self.to_string(),
+            code: self.get_code().to_string(),
+        });
 
         (status, body).into_response()
     }

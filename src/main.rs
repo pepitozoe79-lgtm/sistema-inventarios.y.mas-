@@ -32,10 +32,14 @@ use utoipa_swagger_ui::SwaggerUi;
             models::producto::Producto,
             models::producto::CrearProductoDto,
             models::producto::ActualizarProductoDto,
+            models::producto::ApiResponseProducto,
+            models::producto::ApiListResponseProducto,
+            models::responses::Meta,
+            errors::ErrorResponse,
         )
     ),
     tags(
-        (name = "Productos", description = "Gestión de productos e inventario")
+        (name = "Productos", description = "Gestión de productos e inventario (API v1)")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -69,8 +73,8 @@ async fn main() {
 
     // Rutas públicas
     let rutas_publicas = Router::new()
-        .route("/api/registro", post(handlers::auth_handlers::registro))
-        .route("/api/login", post(handlers::auth_handlers::login));
+        .route("/api/v1/registro", post(handlers::auth_handlers::registro))
+        .route("/api/v1/login", post(handlers::auth_handlers::login));
 
     // Rutas protegidas (JWT requerido)
     let rutas_protegidas = Router::new()
@@ -87,12 +91,11 @@ async fn main() {
         .route("/ventas", post(handlers::ventas::crear_venta))
         .route("/ventas", get(handlers::ventas::listar_ventas))
         .route("/reportes/inventario", get(handlers::reportes::reporte_productos))
-        .route("/reportes/ventas", get(handlers::reportes::reporte_ventas))
-        .layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware));
+        .route("/reportes/ventas", get(handlers::reportes::reporte_ventas));
 
     let app = Router::new()
         .merge(rutas_publicas)
-        .nest("/api", rutas_protegidas)
+        .nest("/api/v1", rutas_protegidas.layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(
             CorsLayer::new()
