@@ -74,7 +74,7 @@ curl -sSL https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios
 
 ### Windows (PowerShell)
 ```powershell
-iwr https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/install.ps1 | iex
+iwr -UseBasicParsing https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/install.ps1 | iex
 ```
 
 ---

@@ -1,57 +1,52 @@
 #!/bin/bash
 
 # Colores para la terminal
+CYAN='\033[0;36m'
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${BLUE}--- Instalador de Sistema de Inventario (Linux/macOS) ---${NC}"
+echo -e "${CYAN}--- Instalador Inteligente: Inventario Pro (Linux) ---${NC}"
 
-# 1. Verificar dependencias básicas
-if ! command -v curl &> /dev/null; then
-    echo "curl no está instalado. Instalándolo..."
-    sudo apt-get update && sudo apt-get install -y curl || sudo brew install curl
+# 1. Verificar herramientas de compilación
+if ! command -v gcc &> /dev/null || ! command -v make &> /dev/null; then
+    echo -e "${YELLOW}⚠️ ERROR: No se detectaron las herramientas de compilación (gcc/make).${NC}"
+    echo -e "Rust necesita 'build-essential' para compilar el sistema."
+    echo ""
+    
+    # Detectar gestor de paquetes y sugerir comando
+    if command -v apt &> /dev/null; then
+        echo -e "Ejecuta: ${GREEN}sudo apt update && sudo apt install build-essential -y${NC}"
+    elif command -v dnf &> /dev/null; then
+        echo -e "Ejecuta: ${GREEN}sudo dnf groupinstall \"Development Tools\"${NC}"
+    elif command -v pacman &> /dev/null; then
+        echo -e "Ejecuta: ${GREEN}sudo pacman -S base-devel${NC}"
+    else
+        echo -e "Por favor, instala el paquete de herramientas de desarrollo de tu distribución."
+    fi
+    exit 1
 fi
 
-if ! command -v git &> /dev/null; then
-    echo "git no está instalado. Instalándolo..."
-    sudo apt-get install -y git || sudo brew install git
-fi
-
-# 2. Instalar Rust si no existe
-if ! command -v cargo &> /dev/null; then
-    echo "Instalando Rust..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    source $HOME/.cargo/env
-fi
-
-# 3. Clonar repositorio
-INSTALL_DIR="$HOME/inventario_sys"
-if [ -d "$INSTALL_DIR" ]; then
-    echo "El directorio ya existe. Actualizando..."
-    cd "$INSTALL_DIR" && git pull
+# 2. Clonar repositorio
+TARGET_DIR="$HOME/Documents/inventario_pro"
+if [ -d "$TARGET_DIR" ]; then
+    echo -e "Actualizando repositorio existente en $TARGET_DIR..."
+    cd "$TARGET_DIR" && git pull
 else
-    git clone https://github.com/pepitozoe79-lgtm/sistema-inventarios.y.mas- "$INSTALL_DIR"
-    cd "$INSTALL_DIR"
+    echo -e "Clonando repositorio..."
+    git clone https://github.com/pepitozoe79-lgtm/sistema-inventarios.y.mas- "$TARGET_DIR"
+    cd "$TARGET_DIR"
 fi
 
-# 4. Configurar fuentes
-mkdir -p fonts
-if [ ! -f "fonts/Roboto-Regular.ttf" ]; then
-    echo "Descargando fuentes necesarias..."
-    curl -L -o fonts/Roboto.zip https://github.com/google/fonts/archive/refs/heads/main.zip
-    # Nota: Aquí se requeriría unzip, pero por simplicidad asumimos que el usuario las pondrá o usamos una fuente del sistema.
-fi
-
-# 5. Configurar .env
-if [ ! -f ".env" ]; then
-    echo "DATABASE_URL=sqlite:inventario.db?mode=rwc" > .env
-    echo "JWT_SECRET=$(openssl rand -base64 32)" >> .env
-fi
-
-# 6. Compilar y Ejecutar
-echo -e "${GREEN}Compilando aplicación... (esto puede tardar unos minutos)${NC}"
+# 3. Compilar
+echo -e "${CYAN}Compilando aplicación (esto puede tardar unos minutos)...${NC}"
 cargo build --release
 
-echo -e "${GREEN}Instalación completada.${NC}"
-echo -e "Para iniciar el sistema: ${BLUE}cd $INSTALL_DIR && cargo run --release${NC}"
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ ¡Instalación completada con éxito!${NC}"
+    echo -e "Para iniciar el sistema, ejecuta:"
+    echo -e "${YELLOW}cd $TARGET_DIR && cargo run --release${NC}"
+else
+    echo -e "${RED}❌ Hubo un error durante la compilación.${NC}"
+fi
