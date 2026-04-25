@@ -5,7 +5,7 @@ use crate::repositories::venta_repository::VentaRepository;
 use crate::repositories::producto_repository::ProductoRepository;
 use crate::repositories::movimiento_repository::MovimientoRepository;
 use crate::services::plan_service::PlanService;
-use crate::services::webhook_service::WebhookService;
+use crate::services::event_bus::EventBus;
 use crate::errors::AppError;
 
 pub struct VentaService;
@@ -73,18 +73,13 @@ impl VentaService {
 
         tx.commit().await?;
 
-        // 📡 EVENTO: sale.created
-        let pool_clone = pool.clone();
-        let tenant_id_clone = tenant_id.to_string();
-        let venta_clone = venta.clone();
-        tokio::spawn(async move {
-            WebhookService::despachar_evento(
-                pool_clone,
-                tenant_id_clone,
-                "sale.created".into(),
-                serde_json::to_value(venta_clone).unwrap(),
-            ).await;
-        });
+        // 📡 EVENTO UNIFICADO via EventBus
+        EventBus::emitir(
+            pool.clone(),
+            tenant_id.to_string(),
+            "sale.created",
+            serde_json::to_value(&venta).unwrap()
+        ).await;
 
         Ok(VentaCompletaResponse { venta, detalles })
     }

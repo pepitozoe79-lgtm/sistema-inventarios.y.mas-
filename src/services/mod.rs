@@ -7,3 +7,5 @@ pub mod predictive_service;
 pub mod plan_service;
 pub mod superadmin_service;
 pub mod webhook_service;
+pub mod integration_service;
+pub mod event_bus;

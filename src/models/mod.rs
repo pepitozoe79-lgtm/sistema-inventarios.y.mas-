@@ -12,3 +12,4 @@ pub mod plan;
 pub mod superadmin;
 pub mod api_key;
 pub mod webhook;
+pub mod integration;

@@ -38,6 +38,7 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::predictivo::obtener_predicciones,
         handlers::superadmin::obtener_dashboard_global,
         handlers::api_v2::productos::listar_v2,
+        handlers::integrations::listar_marketplace,
     ),
     components(
         schemas(
@@ -79,14 +80,18 @@ use utoipa_swagger_ui::SwaggerUi;
             models::webhook::WebhookEndpoint,
             models::webhook::CrearWebhookDto,
             models::webhook::WebhookLog,
+            models::integration::IntegrationApp,
+            models::integration::TenantIntegration,
+            models::integration::InstalarAppDto,
+            models::integration::IntegrationAppFull,
             models::responses::Meta,
             errors::ErrorResponse,
         )
     ),
     tags(
+        (name = "Ecosistema", description = "Marketplace de Aplicaciones e Integraciones"),
         (name = "Integración", description = "Webhooks y API Pública"),
-        (name = "SuperAdmin", description = "Control global SaaS"),
-        (name = "Negocio", description = "ERP Core")
+        (name = "SuperAdmin", description = "Control global SaaS")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -135,15 +140,18 @@ async fn main() {
         .route("/superadmin/dashboard", get(handlers::superadmin::obtener_dashboard_global))
         .layer(middleware::from_fn(auth::require_superadmin));
 
-    // Rutas de Configuración (v1 - Internas)
-    let rutas_config = Router::new()
+    // Rutas de Configuración y Ecosistema (v1 - Internas)
+    let rutas_ecosistema = Router::new()
         .route("/settings/api-keys", get(handlers::api_keys::listar_keys))
         .route("/settings/api-keys", post(handlers::api_keys::crear_key))
         .route("/settings/api-keys/:id", delete(handlers::api_keys::eliminar_key))
         .route("/settings/webhooks", get(handlers::webhooks::listar_endpoints))
         .route("/settings/webhooks", post(handlers::webhooks::crear_endpoint))
         .route("/settings/webhooks/logs", get(handlers::webhooks::listar_logs))
-        .route("/settings/webhooks/:id", delete(handlers::webhooks::eliminar_endpoint));
+        .route("/settings/webhooks/:id", delete(handlers::webhooks::eliminar_endpoint))
+        .route("/ecosistema/marketplace", get(handlers::integrations::listar_marketplace))
+        .route("/ecosistema/marketplace/instalar", post(handlers::integrations::instalar_app))
+        .route("/ecosistema/marketplace/:app_id", delete(handlers::integrations::desinstalar_app));
 
     // Rutas Públicas v2 (Integraciones)
     let rutas_v2 = Router::new()
@@ -164,7 +172,7 @@ async fn main() {
         .route("/inventario/movimientos", post(handlers::movimientos::registrar))
         .route("/ventas", post(handlers::ventas::crear_venta))
         .route("/ventas", get(handlers::ventas::listar_ventas))
-        .merge(rutas_config);
+        .merge(rutas_ecosistema);
 
     let app = Router::new()
         .merge(rutas_publicas)

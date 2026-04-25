@@ -2,7 +2,7 @@ use sqlx::SqlitePool;
 use crate::models::inventario::{MovimientoInventario, NuevoMovimientoDto};
 use crate::repositories::movimiento_repository::MovimientoRepository;
 use crate::repositories::producto_repository::ProductoRepository;
-use crate::services::webhook_service::WebhookService;
+use crate::services::event_bus::EventBus;
 use crate::errors::AppError;
 
 pub struct MovimientoService;
@@ -53,26 +53,18 @@ impl MovimientoService {
 
         tx.commit().await?;
 
-        // 📡 EVENTO: stock.low
+        // 📡 EVENTO UNIFICADO: stock.low
         if nuevo_stock <= 5 {
-            let pool_clone = pool.clone();
-            let tenant_id_clone = tenant_id.to_string();
-            let producto_id = producto.id.clone();
-            let nombre = producto.nombre.clone();
-            
-            tokio::spawn(async move {
-                WebhookService::despachar_evento(
-                    pool_clone,
-                    tenant_id_clone,
-                    "stock.low".into(),
-                    serde_json::json!({
-                        "producto_id": producto_id,
-                        "nombre": nombre,
-                        "stock_actual": nuevo_stock,
-                        "alerta": "Stock crítico alcanzado"
-                    }),
-                ).await;
-            });
+            EventBus::emitir(
+                pool.clone(),
+                tenant_id.to_string(),
+                "stock.low",
+                serde_json::json!({
+                    "producto_id": producto.id,
+                    "nombre": producto.nombre,
+                    "stock_actual": nuevo_stock
+                })
+            ).await;
         }
 
         Ok(movimiento)

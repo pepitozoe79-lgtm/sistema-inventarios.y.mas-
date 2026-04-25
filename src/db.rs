@@ -10,7 +10,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
-            -- 1. Infraestructura Base (Tenants, Auth, API Keys)
+            -- 1. Infraestructura y Ecosistema Base (Existente)
             CREATE TABLE IF NOT EXISTS tenants (
                 id TEXT PRIMARY KEY,
                 nombre TEXT NOT NULL,
@@ -34,17 +34,39 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 hashed_key TEXT NOT NULL UNIQUE,
                 scopes TEXT NOT NULL,
                 creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
-                ultima_vez_usada TEXT,
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- 2. Webhooks Outbound (NUEVO)
+            -- 2. Marketplace de Integraciones (NUEVO)
+            CREATE TABLE IF NOT EXISTS integration_apps (
+                id TEXT PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                descripcion TEXT NOT NULL,
+                logo_url TEXT,
+                eventos_requeridos TEXT NOT NULL, -- "sale.created,product.created"
+                config_schema TEXT, -- JSON Schema para la configuración
+                premium INTEGER DEFAULT 0,
+                creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS tenant_integrations (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                app_id TEXT NOT NULL,
+                config_json TEXT NOT NULL, -- Credenciales cifradas o tokens de la app externa
+                status TEXT NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, PAUSED, ERROR
+                creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(tenant_id) REFERENCES tenants(id),
+                FOREIGN KEY(app_id) REFERENCES integration_apps(id)
+            );
+
+            -- 3. Webhooks Outbound (Existente)
             CREATE TABLE IF NOT EXISTS webhook_endpoints (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
                 url TEXT NOT NULL,
-                secret TEXT NOT NULL, -- HMAC Secret
-                event_types TEXT NOT NULL, -- "sale.created,stock.low"
+                secret TEXT NOT NULL,
+                event_types TEXT NOT NULL,
                 active INTEGER DEFAULT 1,
                 creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
@@ -58,21 +80,10 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 status_code INTEGER,
                 request_body TEXT,
                 response_body TEXT,
-                intentos INTEGER DEFAULT 1,
-                fecha TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(endpoint_id) REFERENCES webhook_endpoints(id)
+                fecha TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- 3. Negocio (Productos, Ventas, Kardex, Gastos)
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id TEXT PRIMARY KEY,
-                tenant_id TEXT NOT NULL,
-                username TEXT NOT NULL,
-                password_hash TEXT NOT NULL,
-                rol TEXT NOT NULL DEFAULT 'usuario',
-                FOREIGN KEY(tenant_id) REFERENCES tenants(id)
-            );
-
+            -- 4. Negocio (Existente)
             CREATE TABLE IF NOT EXISTS productos (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -82,7 +93,6 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 precio_unitario REAL NOT NULL,
                 stock_actual INTEGER DEFAULT 0,
                 creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
-                actualizado_en TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
@@ -92,51 +102,15 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 usuario_id TEXT NOT NULL,
                 total REAL NOT NULL,
                 fecha TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(tenant_id) REFERENCES tenants(id),
-                FOREIGN KEY(usuario_id) REFERENCES usuarios(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS detalle_ventas (
-                id TEXT PRIMARY KEY,
-                tenant_id TEXT NOT NULL,
-                venta_id TEXT NOT NULL,
-                producto_id TEXT NOT NULL,
-                cantidad INTEGER NOT NULL,
-                precio_unitario REAL NOT NULL,
-                subtotal REAL NOT NULL,
-                FOREIGN KEY(tenant_id) REFERENCES tenants(id),
-                FOREIGN KEY(venta_id) REFERENCES ventas(id),
-                FOREIGN KEY(producto_id) REFERENCES productos(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS movimientos_inventario (
-                id TEXT PRIMARY KEY,
-                tenant_id TEXT NOT NULL,
-                producto_id TEXT NOT NULL,
-                usuario_id TEXT,
-                tipo TEXT NOT NULL,
-                cantidad INTEGER NOT NULL,
-                stock_antes INTEGER NOT NULL,
-                stock_despues INTEGER NOT NULL,
-                costo_unitario REAL,
-                motivo TEXT,
-                fecha TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(tenant_id) REFERENCES tenants(id),
-                FOREIGN KEY(producto_id) REFERENCES productos(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS gastos (
-                id TEXT PRIMARY KEY,
-                tenant_id TEXT NOT NULL,
-                tipo TEXT NOT NULL,
-                monto REAL NOT NULL,
-                descripcion TEXT,
-                fecha TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            CREATE INDEX IF NOT EXISTS idx_webhook_tenant ON webhook_endpoints(tenant_id);
-            CREATE INDEX IF NOT EXISTS idx_productos_tenant ON productos(tenant_id);
+            -- Seeder inicial de Apps del Marketplace
+            INSERT OR IGNORE INTO integration_apps (id, nombre, descripcion, eventos_requeridos, premium)
+            VALUES 
+            ('shopify_sync', 'Shopify Connector', 'Sincroniza tus ventas y stock con tu tienda Shopify en tiempo real.', 'sale.created,product.updated', 1),
+            ('whatsapp_notify', 'WhatsApp Alerter', 'Envía notificaciones de venta y stock bajo directamente a tu WhatsApp.', 'sale.created,stock.low', 0),
+            ('google_sheets', 'Sheets Exporter', 'Exporta cada venta automáticamente a una hoja de Google Sheets.', 'sale.created', 0);
         "#
     )
     .execute(pool)
