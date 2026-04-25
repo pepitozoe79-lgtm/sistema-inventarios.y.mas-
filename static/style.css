@@ -547,3 +547,51 @@ tr:hover { background: #f8fafc; }
     background: #6366f1;
     color: white;
 }
+
+/* --- Observability & SuperAdmin Styles --- */
+.health-indicator {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.health-status-badge {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 1rem;
+}
+
+.status-up { background: #10b981; box-shadow: 0 0 8px #10b981; }
+.status-degraded { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+.status-down { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.platform-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.platform-card h4 {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+}
+
+.platform-card p {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #1e293b;
+}

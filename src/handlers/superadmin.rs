@@ -1,22 +1,18 @@
 use axum::{extract::State, Json};
 use sqlx::SqlitePool;
-use crate::models::superadmin::SuperAdminDashboard;
-use crate::models::responses::ApiResponse;
-use crate::services::superadmin_service::SuperAdminService;
+use crate::models::metrics::GlobalDashboardMetrics;
+use crate::services::observability_service::ObservabilityService;
 use crate::errors::AppError;
 
-/// Obtener métricas globales de la plataforma (Sólo SuperAdmin)
-#[utoipa::path(
-    get,
-    path = "/api/v1/superadmin/dashboard",
-    responses(
-        (status = 200, description = "Dashboard global obtenido", body = ApiResponseSuperAdmin),
-    ),
-    security(("bearer_auth" = []))
-)]
+/// Dashboard Global de Observabilidad para el SuperAdmin (Control Tower)
 pub async fn obtener_dashboard_global(
     State(pool): State<SqlitePool>,
-) -> Result<Json<ApiResponse<SuperAdminDashboard>>, AppError> {
-    let data = SuperAdminService::obtener_datos_plataforma(&pool).await?;
-    Ok(Json(ApiResponse::new(data)))
+) -> Result<Json<GlobalDashboardMetrics>, AppError> {
+    // Obtenemos la telemetría unificada de la plataforma
+    let metrics = ObservabilityService::obtener_dashboard_observabilidad(&pool).await?;
+    
+    // Aquí podríamos disparar verificaciones de salud en tiempo real
+    // (Ej: Hacer un ping a servicios externos)
+    
+    Ok(Json(metrics))
 }
