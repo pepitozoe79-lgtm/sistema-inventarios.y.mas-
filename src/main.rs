@@ -31,6 +31,9 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::ventas::listar_ventas,
         handlers::ventas::crear_venta,
         handlers::dashboard::obtener_dashboard,
+        handlers::gastos::listar,
+        handlers::gastos::crear,
+        handlers::gastos::eliminar,
     ),
     components(
         schemas(
@@ -49,6 +52,10 @@ use utoipa_swagger_ui::SwaggerUi;
             models::venta::VentaCompletaResponse,
             models::venta::ApiResponseVenta,
             models::venta::ApiListResponseVenta,
+            models::gasto::Gasto,
+            models::gasto::CrearGastoDto,
+            models::gasto::ApiResponseGasto,
+            models::gasto::ApiListResponseGasto,
             models::dashboard::DashboardStats,
             models::dashboard::TopProducto,
             models::dashboard::ActividadReciente,
@@ -59,9 +66,9 @@ use utoipa_swagger_ui::SwaggerUi;
         )
     ),
     tags(
-        (name = "Facturación", description = "Generación de facturas PDF"),
+        (name = "Finanzas", description = "Control de gastos y rentabilidad"),
         (name = "Dashboard", description = "Inteligencia de negocio"),
-        (name = "Productos", description = "Gestión de productos")
+        (name = "Ventas", description = "Procesamiento de ventas")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -75,8 +82,7 @@ impl utoipa::Modify for SecurityAddon {
             components.add_security_scheme(
                 "bearer_auth",
                 utoipa::openapi::security::SecurityScheme::Http(
-                    utoipa::openapi::security::HttpBuilder::new()
-                        .scheme(utoipa::openapi::security::HttpAuthScheme::Bearer)
+                    utoipa::openapi::security::HttpAuthScheme::Bearer)
                         .bearer_format("JWT")
                         .build(),
                 ),
@@ -110,7 +116,10 @@ async fn main() {
         .route("/productos/:id", delete(handlers::productos::eliminar).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/usuarios", get(handlers::usuarios::listar).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/usuarios/:id/rol", put(handlers::usuarios::actualizar_rol).route_layer(middleware::from_fn(auth::require_admin)))
+        .route("/gastos", post(handlers::gastos::crear).route_layer(middleware::from_fn(auth::require_admin)))
+        .route("/gastos/:id", delete(handlers::gastos::eliminar).route_layer(middleware::from_fn(auth::require_admin)))
         // Rutas accesibles por cualquier usuario autenticado
+        .route("/gastos", get(handlers::gastos::listar))
         .route("/inventario/movimientos", get(handlers::movimientos::listar_movimientos))
         .route("/inventario/movimientos", post(handlers::movimientos::registrar))
         .route("/ventas", post(handlers::ventas::crear_venta))

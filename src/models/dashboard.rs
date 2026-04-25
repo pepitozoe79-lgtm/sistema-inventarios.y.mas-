@@ -7,6 +7,8 @@ pub struct DashboardStats {
     pub ventas_hoy_cantidad: i64,
     pub productos_vendidos_hoy: i64,
     pub alertas_stock_bajo: i64,
+    pub gastos_hoy: f64,
+    pub utilidad_hoy: f64,
 }
 
 #[derive(Serialize, ToSchema)]

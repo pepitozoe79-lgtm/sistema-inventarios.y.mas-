@@ -142,6 +142,8 @@ th, td {
 
 .kpi-card h3 { margin: 0; font-size: 0.9rem; color: #666; text-transform: uppercase; }
 .kpi-card p { margin: 0.5rem 0 0; font-size: 1.8rem; font-weight: bold; color: var(--text); }
+.text-success { color: #2ecc71 !important; }
+.text-danger { color: #e74c3c !important; }
 
 .bar-chart-container {
     margin-top: 2rem;

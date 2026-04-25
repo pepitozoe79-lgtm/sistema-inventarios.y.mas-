@@ -4,3 +4,4 @@ pub mod inventario;
 pub mod venta;
 pub mod responses;
 pub mod dashboard;
+pub mod gasto;
