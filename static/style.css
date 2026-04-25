@@ -480,3 +480,70 @@ tr:hover { background: #f8fafc; }
     font-weight: bold;
     margin-left: 0.5rem;
 }
+
+/* --- AI Chat Styles --- */
+.ai-container {
+    height: calc(100vh - 200px);
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-box {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.chat-msg {
+    max-width: 80%;
+    padding: 0.8rem 1.2rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.msg-user {
+    background: #6366f1;
+    color: white;
+    align-self: flex-end;
+    margin-left: auto;
+}
+
+.msg-ai {
+    background: white;
+    border: 1px solid #e2e8f0;
+    color: #1e293b;
+    align-self: flex-start;
+}
+
+.ai-tool-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    background: #f1f5f9;
+    color: #475569;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    border: 1px dashed #cbd5e1;
+}
+
+.suggestion-btn {
+    background: white;
+    border: 1px solid #6366f1;
+    color: #6366f1;
+    padding: 0.4rem 0.8rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s;
+}
+
+.suggestion-btn:hover {
+    background: #6366f1;
+    color: white;
+}

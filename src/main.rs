@@ -38,6 +38,7 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::predictivo::obtener_predicciones,
         handlers::superadmin::obtener_dashboard_global,
         handlers::api_v2::productos::listar_v2,
+        handlers::api_v2::ai::query_ai,
         handlers::integrations::listar_marketplace,
     ),
     components(
@@ -84,14 +85,17 @@ use utoipa_swagger_ui::SwaggerUi;
             models::integration::TenantIntegration,
             models::integration::InstalarAppDto,
             models::integration::IntegrationAppFull,
+            models::ai::AiQueryRequest,
+            models::ai::AiQueryResponse,
+            models::ai::AiAction,
             models::responses::Meta,
             errors::ErrorResponse,
         )
     ),
     tags(
-        (name = "Ecosistema", description = "Marketplace de Aplicaciones e Integraciones"),
-        (name = "Integración", description = "Webhooks y API Pública"),
-        (name = "SuperAdmin", description = "Control global SaaS")
+        (name = "IA", description = "Asistente de Negocio Cognitivo"),
+        (name = "Ecosistema", description = "Marketplace de Aplicaciones"),
+        (name = "Integración", description = "Webhooks y API Pública")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -153,9 +157,10 @@ async fn main() {
         .route("/ecosistema/marketplace/instalar", post(handlers::integrations::instalar_app))
         .route("/ecosistema/marketplace/:app_id", delete(handlers::integrations::desinstalar_app));
 
-    // Rutas Públicas v2 (Integraciones)
+    // Rutas Públicas v2 (Integraciones + IA)
     let rutas_v2 = Router::new()
-        .route("/products", get(handlers::api_v2::productos::listar_v2));
+        .route("/products", get(handlers::api_v2::productos::listar_v2))
+        .route("/ai/query", post(handlers::api_v2::ai::query_ai));
 
     // Rutas protegidas por Tenant (v1)
     let rutas_protegidas = Router::new()
