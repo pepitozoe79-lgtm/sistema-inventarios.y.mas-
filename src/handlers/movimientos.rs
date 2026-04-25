@@ -1,47 +1,48 @@
 use axum::{
-    extract::{Query, State},
-    Json,
+    extract::{State, Query},
+    Json, Extension
 };
-use serde::Deserialize;
 use sqlx::SqlitePool;
+use crate::models::inventario::{MovimientoInventario, NuevoMovimientoDto, FiltrosMovimiento};
+use crate::models::responses::{ApiResponse, ApiListResponse};
+use crate::services::movimiento_service::MovimientoService;
+use crate::errors::{AppError, ErrorResponse};
+use crate::auth::Claims;
+use crate::models::producto::ApiResponseProducto; // Para reusar si fuera necesario
 
-use crate::errors::AppError;
-use crate::models::inventario::{MovimientoInventario, FiltrosMovimiento};
-
+/// Listar historial de movimientos (Kardex)
+#[utoipa::path(
+    get,
+    path = "/api/v1/inventario/movimientos",
+    responses(
+        (status = 200, description = "Historial obtenido", body = ApiListResponseMovimiento),
+    ),
+    security(("bearer_auth" = []))
+)]
 pub async fn listar_movimientos(
     State(pool): State<SqlitePool>,
-    Query(filtros): Query<FiltrosMovimiento>,
-) -> Result<Json<Vec<MovimientoInventario>>, AppError> {
-    let mut query_str = String::from("SELECT * FROM movimientos_inventario WHERE 1=1");
-    let mut binds: Vec<String> = Vec::new();
+    Query(_filtros): Query<FiltrosMovimiento>,
+) -> Result<Json<ApiListResponse<MovimientoInventario>>, AppError> {
+    let movimientos = MovimientoService::listar_movimientos(&pool).await?;
+    Ok(Json(ApiListResponse::new(movimientos)))
+}
 
-    if let Some(ref pid) = filtros.producto_id {
-        query_str.push_str(" AND producto_id = ?");
-        binds.push(pid.clone());
-    }
-    if let Some(ref tipo) = filtros.tipo {
-        query_str.push_str(" AND tipo = ?");
-        binds.push(tipo.clone());
-    }
-    if let Some(ref desde) = filtros.fecha_desde {
-        query_str.push_str(" AND fecha >= ?");
-        binds.push(desde.clone());
-    }
-    if let Some(ref hasta) = filtros.fecha_hasta {
-        query_str.push_str(" AND fecha <= ?");
-        binds.push(hasta.clone() + " 23:59:59");
-    }
-    query_str.push_str(" ORDER BY fecha DESC");
-
-    let mut query = sqlx::query_as::<_, MovimientoInventario>(&query_str);
-    for b in binds {
-        query = query.bind(b);
-    }
-
-    let movimientos = query
-        .fetch_all(&pool)
-        .await
-        .map_err(|e| (axum::http::StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    Ok(Json(movimientos))
+/// Registrar un nuevo movimiento (Entrada/Salida/Ajuste)
+#[utoipa::path(
+    post,
+    path = "/api/v1/inventario/movimientos",
+    request_body = NuevoMovimientoDto,
+    responses(
+        (status = 201, description = "Movimiento registrado", body = ApiResponseMovimiento),
+        (status = 409, description = "Stock insuficiente", body = ErrorResponse),
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn registrar(
+    State(pool): State<SqlitePool>,
+    Extension(claims): Extension<Claims>,
+    Json(dto): Json<NuevoMovimientoDto>,
+) -> Result<Json<ApiResponse<MovimientoInventario>>, AppError> {
+    let reg = MovimientoService::registrar_movimiento(&pool, dto, Some(claims.sub)).await?;
+    Ok(Json(ApiResponse::new(reg)))
 }

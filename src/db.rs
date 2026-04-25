@@ -35,14 +35,18 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS movimientos_inventario (
-            id TEXT PRIMARY KEY,
-            producto_id TEXT NOT NULL REFERENCES productos(id),
-            tipo TEXT NOT NULL CHECK (tipo IN ('entrada', 'salida')),
-            cantidad INTEGER NOT NULL,
-            motivo TEXT,
-            usuario_id TEXT REFERENCES usuarios(id),
-            fecha TEXT NOT NULL DEFAULT (datetime('now'))
-        )"
+                id TEXT PRIMARY KEY,
+                producto_id TEXT NOT NULL,
+                tipo TEXT NOT NULL,
+                cantidad INTEGER NOT NULL,
+                stock_antes INTEGER NOT NULL,
+                stock_despues INTEGER NOT NULL,
+                costo_unitario REAL,
+                motivo TEXT,
+                usuario_id TEXT,
+                fecha TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(producto_id) REFERENCES productos(id)
+            )"
     ).execute(pool).await?;
 
     sqlx::query(

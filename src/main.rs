@@ -73,6 +73,7 @@ async fn main() {
 
     // Rutas públicas
     let rutas_publicas = Router::new()
+        .route("/api/v1/health", get(|| async { "OK" }))
         .route("/api/v1/registro", post(handlers::auth_handlers::registro))
         .route("/api/v1/login", post(handlers::auth_handlers::login));
 
