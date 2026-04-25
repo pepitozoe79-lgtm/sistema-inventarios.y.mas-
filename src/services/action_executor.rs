@@ -1,45 +1,44 @@
 use sqlx::SqlitePool;
 use crate::models::autonomous::{PlatformDecision, PlatformDecisionType};
 use crate::services::policy_engine::PolicyEngine;
+use crate::services::autonomy_ledger::AutonomyLedger;
 use crate::services::event_bus::EventBus;
 use crate::errors::AppError;
 
 pub struct ActionExecutor;
 
 impl ActionExecutor {
-    /// Ejecuta una decisión autónoma validando siempre con el Policy Engine.
     pub async fn ejecutar(
         pool: &SqlitePool,
         decision: PlatformDecision,
     ) -> Result<(), AppError> {
-        println!("⚡ EXECUTOR: Procesando decisión autónoma: {} para Tenant {}", decision.accion_propuesta, decision.tenant_id);
+        // 1. Validar gobernanza
+        let policy_eval = PolicyEngine::validar_accion(pool, &decision.tenant_id, &decision.accion_propuesta).await;
+        
+        match policy_eval {
+            Ok(p) => {
+                if p.requires_confirmation {
+                    // 🧾 LEDGER: Marcar como pendiente de humano
+                    AutonomyLedger::registrar_resultado(pool, &decision.id, "NEEDS_APPROVAL", Some(&decision.accion_propuesta), "PENDING_HUMAN", None).await?;
+                    println!("👤 HUMAN-IN-THE-LOOP: Acción '{}' en espera de aprobación.", decision.accion_propuesta);
+                    return Ok(());
+                }
 
-        // 1. Validar gobernanza antes de cualquier ejecución automática
-        match PolicyEngine::validar_accion(pool, &decision.tenant_id, &decision.accion_propuesta).await {
-            Ok(_) => {
-                // Proceder con la ejecución según el tipo
+                // Ejecución Real
                 match decision.decision_type {
                     PlatformDecisionType::UpsellOpportunity => {
-                        // Acción: Notificar al AI Copilot que sugiera un upgrade
-                        EventBus::emitir(
-                            pool.clone(),
-                            decision.tenant_id.clone(),
-                            "autonomous.upsell_suggestion",
-                            serde_json::json!({ "reason": decision.razon })
-                        ).await;
+                        EventBus::emitir(pool.clone(), decision.tenant_id.clone(), "autonomous.upsell", serde_json::json!({ "id": decision.id })).await;
                     },
-                    PlatformDecisionType::IntegrationRecovery => {
-                        // Acción: Activar modo de reintento inteligente
-                        println!("🔧 Recovery: Ajustando política de reintentos para Tenant {}", decision.tenant_id);
-                    },
-                    _ => {
-                        println!("⚠️ Executor: Tipo de decisión no implementado aún.");
-                    }
+                    _ => {}
                 }
+
+                // 🧾 LEDGER: Registrar éxito
+                AutonomyLedger::registrar_resultado(pool, &decision.id, "ALLOWED", Some(&decision.accion_propuesta), "SUCCESS", Some(1.0)).await?;
             },
             Err(e) => {
-                println!("🛑 POLICY BLOCK: El ejecutor autónomo fue bloqueado: {}", e);
-                return Err(AppError::Forbidden("Acción autónoma bloqueada por política de seguridad".into()));
+                // 🧾 LEDGER: Registrar bloqueo
+                AutonomyLedger::registrar_resultado(pool, &decision.id, &format!("BLOCKED: {}", e), None, "DENIED", None).await?;
+                return Err(AppError::Forbidden("Bloqueado por política".into()));
             }
         }
 

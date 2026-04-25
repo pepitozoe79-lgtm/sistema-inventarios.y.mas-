@@ -595,3 +595,49 @@ tr:hover { background: #f8fafc; }
     font-weight: bold;
     color: #1e293b;
 }
+
+/* --- Autonomy Governance Styles --- */
+.ledger-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.ledger-table th, .ledger-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.ledger-table th {
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.badge-status {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+.status-pending { background: #fef3c7; color: #92400e; }
+.status-allowed { background: #d1fae5; color: #065f46; }
+.status-denied { background: #fee2e2; color: #991b1b; }
+
+.approval-alert {
+    background: #eff6ff;
+    border: 1px solid #3b82f6;
+    color: #1e40af;
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}

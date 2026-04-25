@@ -15,3 +15,4 @@ pub mod provisioning_service;
 pub mod observability_service;
 pub mod autonomous_engine;
 pub mod action_executor;
+pub mod autonomy_ledger;
