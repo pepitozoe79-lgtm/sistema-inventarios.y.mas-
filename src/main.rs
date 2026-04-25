@@ -15,7 +15,49 @@ use tower_http::{
     cors::{Any, CorsLayer},
     services::ServeDir,
 };
-use tracing_subscriber;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        handlers::productos::listar,
+        handlers::productos::obtener,
+        handlers::productos::crear,
+        handlers::productos::actualizar,
+        handlers::productos::eliminar,
+    ),
+    components(
+        schemas(
+            models::producto::Producto,
+            models::producto::CrearProductoDto,
+            models::producto::ActualizarProductoDto,
+        )
+    ),
+    tags(
+        (name = "Productos", description = "Gestión de productos e inventario")
+    ),
+    modifiers(&SecurityAddon)
+)]
+struct ApiDoc;
+
+struct SecurityAddon;
+
+impl utoipa::Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "bearer_auth",
+                utoipa::openapi::security::SecurityScheme::Http(
+                    utoipa::openapi::security::HttpBuilder::new()
+                        .scheme(utoipa::openapi::security::HttpAuthScheme::Bearer)
+                        .bearer_format("JWT")
+                        .build(),
+                ),
+            )
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -38,8 +80,6 @@ async fn main() {
         .route("/productos", post(handlers::productos::crear).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/productos/:id", put(handlers::productos::actualizar).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/productos/:id", delete(handlers::productos::eliminar).route_layer(middleware::from_fn(auth::require_admin)))
-        .route("/inventario/entrada", post(handlers::inventario::entrada).route_layer(middleware::from_fn(auth::require_admin)))
-        .route("/inventario/salida", post(handlers::inventario::salida).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/usuarios", get(handlers::usuarios::listar).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/usuarios/:id/rol", put(handlers::usuarios::actualizar_rol).route_layer(middleware::from_fn(auth::require_admin)))
         // Rutas accesibles por cualquier usuario autenticado
@@ -53,6 +93,7 @@ async fn main() {
     let app = Router::new()
         .merge(rutas_publicas)
         .nest("/api", rutas_protegidas)
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow, Clone, ToSchema)]
 pub struct Producto {
     pub id: String,
     pub codigo: String,
@@ -12,7 +13,7 @@ pub struct Producto {
     pub actualizado_en: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CrearProductoDto {
     pub codigo: String,
     pub nombre: String,
@@ -20,7 +21,7 @@ pub struct CrearProductoDto {
     pub precio_unitario: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ActualizarProductoDto {
     pub codigo: Option<String>,
     pub nombre: Option<String>,
