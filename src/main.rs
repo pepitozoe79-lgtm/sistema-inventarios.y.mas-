@@ -26,6 +26,10 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::productos::crear,
         handlers::productos::actualizar,
         handlers::productos::eliminar,
+        handlers::movimientos::listar_movimientos,
+        handlers::movimientos::registrar,
+        handlers::ventas::listar_ventas,
+        handlers::ventas::crear_venta,
     ),
     components(
         schemas(
@@ -34,12 +38,24 @@ use utoipa_swagger_ui::SwaggerUi;
             models::producto::ActualizarProductoDto,
             models::producto::ApiResponseProducto,
             models::producto::ApiListResponseProducto,
+            models::inventario::MovimientoInventario,
+            models::inventario::NuevoMovimientoDto,
+            models::inventario::ApiResponseMovimiento,
+            models::inventario::ApiListResponseMovimiento,
+            models::venta::Venta,
+            models::venta::DetalleVenta,
+            models::venta::CrearVentaDto,
+            models::venta::VentaCompletaResponse,
+            models::venta::ApiResponseVenta,
+            models::venta::ApiListResponseVenta,
             models::responses::Meta,
             errors::ErrorResponse,
         )
     ),
     tags(
-        (name = "Productos", description = "Gestión de productos e inventario (API v1)")
+        (name = "Productos", description = "Gestión de productos"),
+        (name = "Inventario", description = "Movimientos de bodega (Kardex)"),
+        (name = "Ventas", description = "Procesamiento de ventas transaccionales")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -89,6 +105,7 @@ async fn main() {
         .route("/usuarios/:id/rol", put(handlers::usuarios::actualizar_rol).route_layer(middleware::from_fn(auth::require_admin)))
         // Rutas accesibles por cualquier usuario autenticado
         .route("/inventario/movimientos", get(handlers::movimientos::listar_movimientos))
+        .route("/inventario/movimientos", post(handlers::movimientos::registrar))
         .route("/ventas", post(handlers::ventas::crear_venta))
         .route("/ventas", get(handlers::ventas::listar_ventas))
         .route("/reportes/inventario", get(handlers::reportes::reporte_productos))

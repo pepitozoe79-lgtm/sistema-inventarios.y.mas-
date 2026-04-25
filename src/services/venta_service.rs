@@ -1,0 +1,86 @@
+use sqlx::SqlitePool;
+use crate::models::venta::{Venta, CrearVentaDto, VentaCompletaResponse};
+use crate::models::inventario::NuevoMovimientoDto;
+use crate::repositories::venta_repository::VentaRepository;
+use crate::repositories::producto_repository::ProductoRepository;
+use crate::repositories::movimiento_repository::MovimientoRepository;
+use crate::errors::AppError;
+
+pub struct VentaService;
+
+impl VentaService {
+    pub async fn listar_ventas(pool: &SqlitePool) -> Result<Vec<Venta>, AppError> {
+        Ok(VentaRepository::listar(pool).await?)
+    }
+
+    pub async fn crear_venta(
+        pool: &SqlitePool,
+        usuario_id: &str,
+        dto: CrearVentaDto
+    ) -> Result<VentaCompletaResponse, AppError> {
+        let mut tx = pool.begin().await?;
+
+        let mut total_venta = 0.0;
+        let mut items_preparados = Vec::new();
+
+        // 1. Validación de stock y cálculo de precios
+        for linea in &dto.lineas {
+            let producto = ProductoRepository::obtener_por_id(pool, &linea.producto_id).await?
+                .ok_or_else(|| AppError::NotFound(format!("Producto {} no encontrado", linea.producto_id)))?;
+
+            if producto.stock_actual < linea.cantidad {
+                return Err(AppError::Conflict(format!("Stock insuficiente para {}", producto.nombre)));
+            }
+
+            let subtotal = (linea.cantidad as f64) * producto.precio_unitario;
+            total_venta += subtotal;
+            
+            items_preparados.push((producto, linea.cantidad, subtotal));
+        }
+
+        // 2. Crear cabezal de venta
+        let venta = VentaRepository::crear_transaccional(&mut tx, usuario_id, total_venta).await?;
+
+        let mut detalles = Vec::new();
+
+        // 3. Procesar cada item
+        for (producto, cantidad, _subtotal) in items_preparados {
+            // A. Añadir detalle
+            let detalle = VentaRepository::añadir_detalle(
+                &mut tx, 
+                &venta.id, 
+                &producto.id, 
+                cantidad, 
+                producto.precio_unitario
+            ).await?;
+            detalles.push(detalle);
+
+            // B. Actualizar stock físico
+            let nuevo_stock = producto.stock_actual - cantidad;
+            sqlx::query("UPDATE productos SET stock_actual = ?, actualizado_en = CURRENT_TIMESTAMP WHERE id = ?")
+                .bind(nuevo_stock)
+                .bind(&producto.id)
+                .execute(&mut *tx)
+                .await?;
+
+            // C. Registrar en Kardex (Auditoría)
+            MovimientoRepository::registrar_transaccional(
+                &mut tx,
+                NuevoMovimientoDto {
+                    producto_id: producto.id.clone(),
+                    tipo: "SALIDA".into(),
+                    cantidad,
+                    costo_unitario: None, // El costo se registra en la entrada
+                    motivo: Some(format!("Venta {}", venta.id.substring(0, 8))),
+                },
+                producto.stock_actual,
+                nuevo_stock,
+                Some(usuario_id.into()),
+            ).await?;
+        }
+
+        tx.commit().await?;
+
+        Ok(VentaCompletaResponse { venta, detalles })
+    }
+}
