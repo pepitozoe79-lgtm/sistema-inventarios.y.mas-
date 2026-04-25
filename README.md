@@ -14,6 +14,18 @@ Este es un sistema integral de gestión de inventario, bodega y ventas multiusua
 - **Interfaz Moderna**: Dashboard responsive con estética "premium", diseñado para una experiencia de usuario fluida.
 - **Base de Datos Embebida**: Utiliza SQLite mediante SQLx para una instalación sin dependencias externas.
 
+## 🚀 Instalación Rápida (One-liner)
+
+### Linux / macOS
+```bash
+curl -fsSL https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/install.sh | bash
+```
+
+### Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/install.ps1 | iex
+```
+
 ## 🛠️ Requisitos previos
 
 - [Rust](https://www.rust-lang.org/tools/install) (Edición 2021).
