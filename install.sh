@@ -9,30 +9,23 @@ NC='\033[0m'
 
 printf "${CYAN}--- Instalador Universal: Inventario Pro (Linux) ---${NC}\n"
 
-# 1. Verificar herramientas de compilación (POSIX compatible)
-HAS_GCC=0
-HAS_MAKE=0
-
-if command -v gcc > /dev/null 2>&1; then HAS_GCC=1; fi
-if command -v make > /dev/null 2>&1; then HAS_MAKE=1; fi
-
-if [ "$HAS_GCC" -eq 0 ] || [ "$HAS_MAKE" -eq 0 ]; then
+# 1. Verificar herramientas de compilación
+if ! command -v gcc > /dev/null 2>&1 || ! command -v make > /dev/null 2>&1; then
     printf "${YELLOW}⚠️ ERROR: No se detectaron las herramientas de compilación (gcc/make).${NC}\n"
-    printf "Rust necesita 'build-essential' para compilar el sistema.\n\n"
-    
-    if command -v apt > /dev/null 2>&1; then
-        printf "Ejecuta: ${GREEN}sudo apt update && sudo apt install build-essential -y${NC}\n"
-    elif command -v dnf > /dev/null 2>&1; then
-        printf "Ejecuta: ${GREEN}sudo dnf groupinstall \"Development Tools\"${NC}\n"
-    elif command -v pacman > /dev/null 2>&1; then
-        printf "Ejecuta: ${GREEN}sudo pacman -S base-devel${NC}\n"
-    else
-        printf "Por favor, instala las herramientas de desarrollo de tu distribución.\n"
-    fi
+    printf "Ejecuta: ${GREEN}sudo apt update && sudo apt install build-essential -y${NC}\n"
     exit 1
 fi
 
-# 2. Clonar repositorio
+# 2. Verificar si Rust está instalado
+if ! command -v cargo > /dev/null 2>&1; then
+    printf "${YELLOW}⚠️ ERROR: No se detectó Rust (cargo).${NC}\n"
+    printf "Por favor, instala Rust ejecutando:\n"
+    printf "${GREEN}curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh${NC}\n"
+    printf "Luego reinicia tu terminal e intenta de nuevo.\n"
+    exit 1
+fi
+
+# 3. Clonar repositorio
 TARGET_DIR="$HOME/Documents/inventario_pro"
 if [ -d "$TARGET_DIR" ]; then
     printf "Actualizando repositorio existente en $TARGET_DIR...\n"
@@ -43,7 +36,7 @@ else
     cd "$TARGET_DIR"
 fi
 
-# 3. Compilar
+# 4. Compilar
 printf "${CYAN}Compilando aplicación (esto puede tardar unos minutos)...${NC}\n"
 cargo build --release
 
