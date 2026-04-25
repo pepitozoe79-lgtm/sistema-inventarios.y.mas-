@@ -1,78 +1,89 @@
-![Banner](banner.png)
+# 🚀 Inventario Pro: Autonomous & Conversational Business OS (Rust)
 
-# 🛒 Sistema de Inventario, Bodega y Ventas (Rust)
+![Banner](https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/inventory_system_banner_1777082829875.png)
 
-Este es un sistema integral de gestión de inventario, bodega y ventas multiusuario, diseñado para ser ligero, rápido y multiplataforma (Windows, Linux, macOS). Construido con **Rust** en el backend y una interfaz moderna en **Vanilla JavaScript**.
+> **"No es solo un ERP. Es el sistema operativo inteligente que dirige y optimiza tu negocio de forma autónoma."**
 
-## 🚀 Características principales
+Este proyecto es una plataforma **SaaS Multi-tenant** de grado infraestructura, construida con la seguridad y velocidad de **Rust**. Fusiona la gestión operativa tradicional con una capa cognitiva de IA, un bus de eventos reactivo y una gobernanza empresarial estricta.
 
-- **Gestión Multiusuario**: Autenticación segura mediante JWT y contraseñas hasheadas con Argon2.
-- **Control de Roles (RBAC)**: Diferenciación entre administradores y usuarios normales.
-- **Gestión de Inventario**: CRUD completo de productos y registro de movimientos (entradas/salidas).
-- **Módulo de Ventas**: Creación de ventas con transacciones atómicas, descuento automático de stock y registro de historial.
-- **Reportes PDF Profesionales**:
-  - Exportación de inventario con filtros (ej: solo productos con stock bajo).
-  - Reportes de ventas mensuales con cálculo de totales.
-- **Interfaz Moderna**: Dashboard responsive con estética "premium", diseñado para una experiencia de usuario fluida.
-- **Base de Datos Embebida**: Utiliza SQLite mediante SQLx para una instalación sin dependencias externas.
+---
+
+## 🏛️ Arquitectura de 5 Capas
+
+### 1. 🧱 ERP Core (Execution Layer)
+El motor de alto rendimiento que maneja la realidad física del negocio.
+- **Punto de Venta (POS)**: Transacciones atómicas y gestión de caja.
+- **Kardex Automatizado**: Trazabilidad total de cada unidad de stock.
+- **Gestión de Gastos**: Control de flujo de caja y rentabilidad neta.
+
+### 2. 🧠 Capa Cognitiva (AI Copilot)
+La inteligencia que orquesta el sistema mediante lenguaje natural.
+- **Business Copilot**: Un asistente IA con **Tool-Calling** que opera el ERP por ti.
+- **Predictive Engine**: Algoritmos que anticipan faltantes de stock y tendencias de venta.
+- **Semantic Gateway**: Consulta de métricas y ejecución de acciones mediante comandos de voz o texto.
+
+### 3. 📡 Plataforma Reactiva (Event-Driven)
+Infraestructura que conecta el ERP con el mundo exterior en tiempo real.
+- **Outbound Webhooks**: Notificaciones con firma **HMAC SHA-256** (Stripe-style).
+- **Public API v2**: Integración segura mediante **API Keys** y Scopes granulares.
+- **Internal Event Bus**: Orquestación asíncrona de procesos de negocio.
+
+### 4. 🛒 Ecosistema (Marketplace & SaaS Factory)
+Escalabilidad y extensibilidad modular.
+- **Marketplace de Apps**: Conectores oficiales para **Shopify**, **WhatsApp Business** y **Google Sheets**.
+- **SaaS Factory (Provisioning)**: Creación de empresas completas en milisegundos (Zero-click onboarding).
+- **Stripe Billing**: Gestión automatizada de suscripciones, planes y límites de uso.
+
+### 5. ⚖️ Gobernanza & Observabilidad (Trust Layer)
+Control total sobre la autonomía y la salud del sistema.
+- **Policy Engine**: Motor de reglas de riesgo y cumplimiento empresarial.
+- **Autonomy Ledger**: Registro inmutable y auditable de cada decisión tomada por la IA.
+- **Control Tower**: Dashboard de observabilidad global (MRR, Salud del sistema, Telemetría).
+
+---
+
+## 🛠️ Tech Stack Premium
+
+- **Backend**: [Rust](https://www.rust-lang.org/) (Axum, SQLx, Tokio)
+- **Database**: SQLite (Serie temporal para métricas + SQLx para integridad)
+- **Security**: JWT, Argon2, HMAC SHA-256, Bcrypt
+- **Frontend**: Vanilla JS & CSS3 (Premium Dark Mode & Glassmorphism Aesthetics)
+- **Integraciones**: Stripe API, Shopify Webhooks, OpenAI/LLM Tool-Calling
+
+---
+
+## 💎 Planes y Monetización
+
+| Característica | Plan BASIC | Plan PRO |
+| :--- | :---: | :---: |
+| POS & Inventario | ✅ | ✅ |
+| AI Business Copilot | ❌ | ✅ |
+| Marketplace Apps | Limitado | Ilimitado |
+| Webhooks & API Keys | ❌ | ✅ |
+| Autonomía de Negocio | ❌ | ✅ |
+| Soporte | Comunidad | Priority |
+
+---
 
 ## 🚀 Instalación Rápida (One-liner)
 
 ### Linux / macOS
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 ```powershell
-irm https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/install.ps1 | iex
+iwr https://raw.githubusercontent.com/pepitozoe79-lgtm/sistema-inventarios.y.mas-/main/install.ps1 | iex
 ```
 
-## 🛠️ Requisitos previos
+---
 
-- [Rust](https://www.rust-lang.org/tools/install) (Edición 2021).
-- Fuentes TrueType (TTF) para los reportes (se recomienda **Roboto**).
+## 📜 Licencia y Menciones
 
-## 📦 Instalación y Configuración
-
-1. **Clonar el repositorio** (o descargar los archivos).
-2. **Configurar el entorno**: Crea o edita el archivo `.env` en la raíz:
-   ```env
-   DATABASE_URL=sqlite:inventario.db?mode=rwc
-   JWT_SECRET=tu_clave_secreta_aqui
-   ```
-3. **Instalar Fuentes**:
-   - Crea una carpeta llamada `fonts` en la raíz.
-   - Coloca los archivos `Roboto-Regular.ttf` y `Roboto-Bold.ttf` dentro.
-4. **Ejecutar la aplicación**:
-   ```bash
-   cargo run
-   ```
-   La aplicación estará disponible en [http://localhost:3000](http://localhost:3000).
-
-## 📖 Guía de Uso
-
-### Inicio de Sesión y Roles
-- El primer usuario que se registre puede ser promovido a **admin** directamente en la base de datos o a través de otro administrador.
-- Solo los **Administradores** pueden crear productos, gestionar usuarios y ver reportes avanzados.
-
-### Gestión de Productos
-- Accede a la pestaña "Productos" para añadir nuevos ítems.
-- Puedes editar precios, descripciones y códigos en cualquier momento.
-
-### Realizar Ventas
-- En la pestaña "Ventas", selecciona uno o varios productos, ajusta las cantidades y finaliza la transacción. El sistema validará automáticamente si hay stock suficiente.
-
-### Reportes
-- Usa los botones de exportación para obtener documentos PDF listos para imprimir o enviar por correo.
-
-## 🏗️ Arquitectura Técnica
-
-- **Backend**: [Axum](https://github.com/tokio-rs/axum) (Web Framework) + [Tokio](https://tokio.rs/) (Async Runtime).
-- **Base de Datos**: [SQLx](https://github.com/launchbadge/sqlx) con SQLite.
-- **Seguridad**: JWT (jsonwebtoken) + Argon2 (password hashing).
-- **Reportes**: [genpdf](https://github.com/p-avital/genpdf).
-- **Frontend**: HTML5, CSS3 (Variables y Flexbox/Grid), Vanilla JS.
+Este proyecto es una muestra de ingeniería avanzada en Rust para el mundo SaaS.
+Desarrollado con pasión por el equipo de **LGTM** y mentoreado bajo estándares de infraestructura de clase mundial.
 
 ---
-Desarrollado con ❤️ en Rust.
+
+> *"The future of business is not managed, it is orchestrated."* 🚀
