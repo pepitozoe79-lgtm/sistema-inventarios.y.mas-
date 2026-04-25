@@ -13,3 +13,5 @@ pub mod ai_service;
 pub mod policy_engine;
 pub mod provisioning_service;
 pub mod observability_service;
+pub mod autonomous_engine;
+pub mod action_executor;

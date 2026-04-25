@@ -16,3 +16,4 @@ pub mod integration;
 pub mod ai;
 pub mod policy;
 pub mod metrics;
+pub mod autonomous;
