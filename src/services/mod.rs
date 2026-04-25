@@ -11,3 +11,4 @@ pub mod integration_service;
 pub mod event_bus;
 pub mod ai_service;
 pub mod policy_engine;
+pub mod provisioning_service;

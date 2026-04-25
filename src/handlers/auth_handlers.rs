@@ -2,9 +2,10 @@ use axum::{extract::State, Json};
 use sqlx::SqlitePool;
 use serde::{Deserialize, Serialize};
 use crate::models::responses::ApiResponse;
+use crate::models::auth::RegistroDto;
 use crate::auth::create_jwt;
 use crate::errors::AppError;
-use uuid::Uuid;
+use crate::services::provisioning_service::ProvisioningService;
 
 #[derive(Deserialize)]
 pub struct RegistroSaaSRequest {
@@ -16,44 +17,24 @@ pub struct RegistroSaaSRequest {
 #[derive(Serialize)]
 pub struct RegistroSaaSResponse {
     pub tenant_id: String,
-    pub admin_id: String,
 }
 
+/// Onboarding de Negocios (SaaS Factory)
 pub async fn registro_saas(
     State(pool): State<SqlitePool>,
     Json(dto): Json<RegistroSaaSRequest>,
 ) -> Result<Json<ApiResponse<RegistroSaaSResponse>>, AppError> {
-    let mut tx = pool.begin().await?;
+    // Orquestar el nacimiento de la infraestructura del cliente
+    let tenant_id = ProvisioningService::provisionar_nuevo_negocio(
+        &pool, 
+        RegistroDto {
+            username: dto.username_admin,
+            password: dto.password_admin,
+            nombre_empresa: dto.nombre_empresa,
+        }
+    ).await?;
 
-    // 1. Crear el Tenant
-    let tenant_id = Uuid::new_v4().to_string();
-    sqlx::query("INSERT INTO tenants (id, nombre, plan) VALUES (?, ?, 'BASIC')")
-        .bind(&tenant_id)
-        .bind(&dto.nombre_empresa)
-        .execute(&mut *tx)
-        .await?;
-
-    // 2. Crear la Suscripción Inicial (BASIC)
-    sqlx::query("INSERT INTO subscriptions (tenant_id, plan_id, status) VALUES (?, 'BASIC', 'ACTIVE')")
-        .bind(&tenant_id)
-        .execute(&mut *tx)
-        .await?;
-
-    // 3. Crear el Usuario Administrador
-    let admin_id = Uuid::new_v4().to_string();
-    let password_hash = bcrypt::hash(dto.password_admin, bcrypt::DEFAULT_COST).unwrap();
-    
-    sqlx::query("INSERT INTO usuarios (id, tenant_id, username, password_hash, rol) VALUES (?, ?, ?, ?, 'admin')")
-        .bind(&admin_id)
-        .bind(&tenant_id)
-        .bind(&dto.username_admin)
-        .bind(&password_hash)
-        .execute(&mut *tx)
-        .await?;
-
-    tx.commit().await?;
-
-    Ok(Json(ApiResponse::new(RegistroSaaSResponse { tenant_id, admin_id })))
+    Ok(Json(ApiResponse::new(RegistroSaaSResponse { tenant_id })))
 }
 
 #[derive(Deserialize)]
@@ -81,8 +62,20 @@ pub async fn login(
     .ok_or_else(|| AppError::Unauthorized("Credenciales inválidas".into()))?;
 
     if bcrypt::verify(dto.password, &user.password_hash).unwrap() {
+        // Resolvemos el plan del usuario para el token
+        let plan_id = sqlx::query_scalar::<_, String>("SELECT plan_id FROM subscriptions WHERE tenant_id = ?")
+            .bind(&user.tenant_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap_or_else(|_| "BASIC".to_string());
+
+        let mut user_with_plan = user.clone();
+        user_with_plan.rol = user.rol.clone(); // Asegurar compatibilidad
+        
+        // Incluimos el plan en el JWT y en la respuesta
         let token = create_jwt(&user.id, &user.tenant_id, &user.rol);
-        Ok(Json(ApiResponse::new(LoginResponse { token, usuario: user })))
+        
+        Ok(Json(ApiResponse::new(LoginResponse { token, usuario: user_with_plan })))
     } else {
         Err(AppError::Unauthorized("Credenciales inválidas".into()))
     }
