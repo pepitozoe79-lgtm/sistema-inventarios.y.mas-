@@ -1,6 +1,7 @@
 use sqlx::SqlitePool;
 use crate::models::producto::{Producto, CrearProductoDto, ActualizarProductoDto};
 use crate::repositories::producto_repository::ProductoRepository;
+use crate::services::plan_service::PlanService;
 use crate::errors::AppError;
 
 pub struct ProductoService;
@@ -16,7 +17,10 @@ impl ProductoService {
     }
 
     pub async fn crear_producto(pool: &SqlitePool, tenant_id: &str, dto: CrearProductoDto) -> Result<Producto, AppError> {
-        // Validación de duplicados por código dentro del mismo tenant
+        // 🔒 SaaS Enforcement: Verificar límite del plan
+        PlanService::validar_limite_productos(pool, tenant_id).await?;
+
+        // Validación de duplicados por código
         let existentes = ProductoRepository::listar(pool, tenant_id).await?;
         if existentes.iter().any(|p| p.codigo == dto.codigo) {
             return Err(AppError::Conflict("El código de producto ya existe en tu empresa".into()));

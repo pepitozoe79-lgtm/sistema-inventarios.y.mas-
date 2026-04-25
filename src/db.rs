@@ -10,7 +10,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
-            -- 1. Tabla de Tenants (Empresas)
+            -- 1. Tabla de Tenants
             CREATE TABLE IF NOT EXISTS tenants (
                 id TEXT PRIMARY KEY,
                 nombre TEXT NOT NULL,
@@ -18,7 +18,17 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 creado_en TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- 2. Tabla de Usuarios (aislados por tenant)
+            -- 2. Tabla de Suscripciones (Billing)
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                tenant_id TEXT PRIMARY KEY,
+                plan_id TEXT NOT NULL DEFAULT 'BASIC',
+                stripe_customer_id TEXT,
+                status TEXT NOT NULL DEFAULT 'ACTIVE',
+                periodo_fin TEXT NOT NULL DEFAULT '2099-12-31',
+                FOREIGN KEY(tenant_id) REFERENCES tenants(id)
+            );
+
+            -- 3. Tabla de Usuarios
             CREATE TABLE IF NOT EXISTS usuarios (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -28,7 +38,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- 3. Tabla de Productos
+            -- 4. Tabla de Productos
             CREATE TABLE IF NOT EXISTS productos (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -42,7 +52,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- 4. Tabla de Ventas
+            -- 5. Tabla de Ventas
             CREATE TABLE IF NOT EXISTS ventas (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -53,7 +63,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(usuario_id) REFERENCES usuarios(id)
             );
 
-            -- 5. Detalle de Ventas
+            -- 6. Detalle de Ventas
             CREATE TABLE IF NOT EXISTS detalle_ventas (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -67,7 +77,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(producto_id) REFERENCES productos(id)
             );
 
-            -- 6. Historial de Movimientos (Kardex)
+            -- 7. Historial de Movimientos
             CREATE TABLE IF NOT EXISTS movimientos_inventario (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -84,7 +94,7 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(producto_id) REFERENCES productos(id)
             );
 
-            -- 7. Gastos
+            -- 8. Gastos
             CREATE TABLE IF NOT EXISTS gastos (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -95,7 +105,6 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- Índices para optimizar aislamiento
             CREATE INDEX IF NOT EXISTS idx_productos_tenant ON productos(tenant_id);
             CREATE INDEX IF NOT EXISTS idx_ventas_tenant ON ventas(tenant_id);
             CREATE INDEX IF NOT EXISTS idx_gastos_tenant ON gastos(tenant_id);

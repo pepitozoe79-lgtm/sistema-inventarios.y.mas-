@@ -4,6 +4,7 @@ use crate::models::inventario::NuevoMovimientoDto;
 use crate::repositories::venta_repository::VentaRepository;
 use crate::repositories::producto_repository::ProductoRepository;
 use crate::repositories::movimiento_repository::MovimientoRepository;
+use crate::services::plan_service::PlanService;
 use crate::errors::AppError;
 
 pub struct VentaService;
@@ -19,13 +20,15 @@ impl VentaService {
         usuario_id: &str,
         dto: CrearVentaDto
     ) -> Result<VentaCompletaResponse, AppError> {
+        // 🔒 SaaS Enforcement: Verificar límite de ventas mensuales
+        PlanService::validar_limite_ventas(pool, tenant_id).await?;
+
         let mut tx = pool.begin().await?;
 
         let mut total_venta = 0.0;
         let mut items_preparados = Vec::new();
 
         for linea in &dto.lineas {
-            // Obtener producto validando tenant
             let producto = ProductoRepository::obtener_por_id(pool, tenant_id, &linea.producto_id).await?
                 .ok_or_else(|| AppError::NotFound(format!("Producto {} no encontrado", linea.producto_id)))?;
 
@@ -38,7 +41,6 @@ impl VentaService {
             items_preparados.push((producto, linea.cantidad, subtotal));
         }
 
-        // Crear venta con tenant_id
         let venta = VentaRepository::crear_transaccional(&mut tx, tenant_id, usuario_id, total_venta).await?;
         let mut detalles = Vec::new();
 

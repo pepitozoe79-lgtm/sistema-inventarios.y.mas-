@@ -33,7 +33,13 @@ pub async fn registro_saas(
         .execute(&mut *tx)
         .await?;
 
-    // 2. Crear el Usuario Administrador para ese Tenant
+    // 2. Crear la Suscripción Inicial (BASIC)
+    sqlx::query("INSERT INTO subscriptions (tenant_id, plan_id, status) VALUES (?, 'BASIC', 'ACTIVE')")
+        .bind(&tenant_id)
+        .execute(&mut *tx)
+        .await?;
+
+    // 3. Crear el Usuario Administrador
     let admin_id = Uuid::new_v4().to_string();
     let password_hash = bcrypt::hash(dto.password_admin, bcrypt::DEFAULT_COST).unwrap();
     
