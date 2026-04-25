@@ -10,7 +10,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
-            -- 1. Tabla de Tenants
+            -- 1. Tenants y Suscripciones (Existente)
             CREATE TABLE IF NOT EXISTS tenants (
                 id TEXT PRIMARY KEY,
                 nombre TEXT NOT NULL,
@@ -18,7 +18,6 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 creado_en TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- 2. Tabla de Suscripciones (Billing)
             CREATE TABLE IF NOT EXISTS subscriptions (
                 tenant_id TEXT PRIMARY KEY,
                 plan_id TEXT NOT NULL DEFAULT 'BASIC',
@@ -28,7 +27,19 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- 3. Tabla de Usuarios
+            -- 2. API Keys para Integraciones Externas (NUEVO)
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                nombre TEXT NOT NULL,
+                hashed_key TEXT NOT NULL UNIQUE,
+                scopes TEXT NOT NULL, -- JSON o string separado por comas: "products:read,sales:write"
+                creado_en TEXT DEFAULT CURRENT_TIMESTAMP,
+                ultima_vez_usada TEXT,
+                FOREIGN KEY(tenant_id) REFERENCES tenants(id)
+            );
+
+            -- 3. Usuarios, Productos, Ventas, etc. (Existente)
             CREATE TABLE IF NOT EXISTS usuarios (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -38,7 +49,6 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- 4. Tabla de Productos
             CREATE TABLE IF NOT EXISTS productos (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -52,7 +62,6 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
-            -- 5. Tabla de Ventas
             CREATE TABLE IF NOT EXISTS ventas (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -63,7 +72,6 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(usuario_id) REFERENCES usuarios(id)
             );
 
-            -- 6. Detalle de Ventas
             CREATE TABLE IF NOT EXISTS detalle_ventas (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -77,7 +85,6 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(producto_id) REFERENCES productos(id)
             );
 
-            -- 7. Historial de Movimientos
             CREATE TABLE IF NOT EXISTS movimientos_inventario (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -94,7 +101,6 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(producto_id) REFERENCES productos(id)
             );
 
-            -- 8. Gastos
             CREATE TABLE IF NOT EXISTS gastos (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -105,9 +111,8 @@ pub async fn run_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
                 FOREIGN KEY(tenant_id) REFERENCES tenants(id)
             );
 
+            CREATE INDEX IF NOT EXISTS idx_api_keys_tenant ON api_keys(tenant_id);
             CREATE INDEX IF NOT EXISTS idx_productos_tenant ON productos(tenant_id);
-            CREATE INDEX IF NOT EXISTS idx_ventas_tenant ON ventas(tenant_id);
-            CREATE INDEX IF NOT EXISTS idx_gastos_tenant ON gastos(tenant_id);
         "#
     )
     .execute(pool)

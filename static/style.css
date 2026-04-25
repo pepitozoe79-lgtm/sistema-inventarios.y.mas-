@@ -363,3 +363,36 @@ tr:hover { background: #f8fafc; }
 
 .tenant-table th { background: #f8fafc; color: #64748b; font-size: 0.75rem; padding: 1rem; text-align: left; border-bottom: 2px solid #e2e8f0; }
 .tenant-table td { padding: 1rem; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+
+/* --- API Key Styles --- */
+.api-key-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.secret-box {
+    background: #1e293b;
+    color: #38bdf8;
+    padding: 1.2rem;
+    border-radius: 12px;
+    font-family: monospace;
+    font-size: 1.1rem;
+    margin: 1.5rem 0;
+    word-break: break-all;
+    border-left: 4px solid #38bdf8;
+}
+
+.scope-pill {
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    margin-right: 0.4rem;
+}

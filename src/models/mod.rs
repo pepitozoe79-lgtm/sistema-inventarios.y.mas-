@@ -10,3 +10,4 @@ pub mod predictivo;
 pub mod tenant;
 pub mod plan;
 pub mod superadmin;
+pub mod api_key;

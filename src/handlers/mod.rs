@@ -12,3 +12,5 @@ pub mod analytics;
 pub mod predictivo;
 pub mod billing;
 pub mod superadmin;
+pub mod api_keys;
+pub mod api_v2;

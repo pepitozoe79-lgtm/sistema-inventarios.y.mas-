@@ -37,6 +37,7 @@ use utoipa_swagger_ui::SwaggerUi;
         handlers::analytics::obtener_analytics,
         handlers::predictivo::obtener_predicciones,
         handlers::superadmin::obtener_dashboard_global,
+        handlers::api_v2::productos::listar_v2,
     ),
     components(
         schemas(
@@ -72,14 +73,17 @@ use utoipa_swagger_ui::SwaggerUi;
             models::dashboard::ActividadReciente,
             models::dashboard::DashboardData,
             models::dashboard::ApiResponseDashboard,
+            models::api_key::ApiKey,
+            models::api_key::CrearApiKeyDto,
+            models::api_key::ApiKeyGeneradaResponse,
             models::responses::Meta,
             errors::ErrorResponse,
         )
     ),
     tags(
+        (name = "Integración", description = "API Pública para desarrolladores (v2)"),
         (name = "SuperAdmin", description = "Control global de la plataforma SaaS"),
-        (name = "Billing", description = "Suscripciones y Pagos"),
-        (name = "Predictivo", description = "Inteligencia Predictiva")
+        (name = "Billing", description = "Suscripciones y Pagos")
     ),
     modifiers(&SecurityAddon)
 )]
@@ -97,7 +101,13 @@ impl utoipa::Modify for SecurityAddon {
                         .bearer_format("JWT")
                         .build(),
                 ),
-            )
+            );
+            components.add_security_scheme(
+                "api_key",
+                utoipa::openapi::security::SecurityScheme::ApiKey(
+                    utoipa::openapi::security::ApiKey::Header("X-API-Key".to_string())
+                ),
+            );
         }
     }
 }
@@ -117,12 +127,22 @@ async fn main() {
         .route("/api/v1/login", post(handlers::auth_handlers::login))
         .route("/api/v1/billing/webhook", post(handlers::billing::stripe_webhook));
 
-    // Rutas de SuperAdmin (Acceso Global)
+    // Rutas de SuperAdmin
     let rutas_superadmin = Router::new()
         .route("/superadmin/dashboard", get(handlers::superadmin::obtener_dashboard_global))
         .layer(middleware::from_fn(auth::require_superadmin));
 
-    // Rutas protegidas por Tenant
+    // Rutas de Gestión de API Keys (v1 - Internas)
+    let rutas_api_keys = Router::new()
+        .route("/settings/api-keys", get(handlers::api_keys::listar_keys))
+        .route("/settings/api-keys", post(handlers::api_keys::crear_key))
+        .route("/settings/api-keys/:id", delete(handlers::api_keys::eliminar_key));
+
+    // Rutas Públicas v2 (Integraciones)
+    let rutas_v2 = Router::new()
+        .route("/products", get(handlers::api_v2::productos::listar_v2));
+
+    // Rutas protegidas por Tenant (v1)
     let rutas_protegidas = Router::new()
         .route("/dashboard", get(handlers::dashboard::obtener_dashboard))
         .route("/analytics", get(handlers::analytics::obtener_analytics))
@@ -133,19 +153,17 @@ async fn main() {
         .route("/productos", post(handlers::productos::crear).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/productos/:id", put(handlers::productos::actualizar).route_layer(middleware::from_fn(auth::require_admin)))
         .route("/productos/:id", delete(handlers::productos::eliminar).route_layer(middleware::from_fn(auth::require_admin)))
-        .route("/gastos", post(handlers::gastos::crear).route_layer(middleware::from_fn(auth::require_admin)))
-        .route("/gastos/:id", delete(handlers::gastos::eliminar).route_layer(middleware::from_fn(auth::require_admin)))
-        .route("/gastos", get(handlers::gastos::listar))
         .route("/inventario/movimientos", get(handlers::movimientos::listar_movimientos))
         .route("/inventario/movimientos", post(handlers::movimientos::registrar))
         .route("/ventas", post(handlers::ventas::crear_venta))
         .route("/ventas", get(handlers::ventas::listar_ventas))
-        .route("/ventas/:id/factura", get(handlers::facturas::generar_factura));
+        .merge(rutas_api_keys);
 
     let app = Router::new()
         .merge(rutas_publicas)
         .nest("/api/v1", rutas_superadmin)
         .nest("/api/v1", rutas_protegidas.layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
+        .nest("/api/v2", rutas_v2.layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(
             CorsLayer::new()
